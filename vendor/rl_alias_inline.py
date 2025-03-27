@@ -1,9 +1,7 @@
 import re
 import sys
 
-PREFIX = 'rl'
-
-def parse_function(content):
+def parse_functions(prefix, content):
     # Regex pattern to match function declarations
     pattern = r'RLAPI\s+(\w+)\s+(\w+)\((.*?)\);'
     matches = re.findall(pattern, content)
@@ -19,7 +17,7 @@ def parse_function(content):
             args = args.replace("...", "va_list args")
             
         # Generate the inline function
-        inline_func = f"static inline {return_type} {PREFIX}{func_name}({args})\n"
+        inline_func = f"static inline {return_type} {prefix}{func_name}({args})\n"
         inline_func += "{\n"
         
         # Get argument names, handling pointer types correctly
@@ -50,11 +48,15 @@ def parse_function(content):
 
 def main():
     if len(sys.argv) < 3:
-        print("Usage: python rl_alias.py <raylib.h> <output.h>")
+        print("Usage: python rl_alias.py <raylib.h> <output.h> <prefix?>")
         sys.exit(1)
 
     header_file = sys.argv[1]
     output_file = sys.argv[2]
+    if len(sys.argv) > 3:
+        prefix = sys.argv[3]
+    else:
+        prefix = "rl"
 
     # Read header file
     try:
@@ -65,17 +67,21 @@ def main():
         sys.exit(1)
 
     # Generate functions
-    generated_functions = parse_function(content)
+    generated_functions = parse_functions(prefix, content)
 
     # Write to output file
     try:
         with open(output_file, "w") as file:
             file.write("// Auto-generated alias file\n\n")
-            file.write("#include \"raylib.h\"\n\n")
+            file.write("#ifndef _RL_ALIAS_H\n")
+            file.write("#define _RL_ALIAS_H\n")
+            file.write("#include <raylib.h>\n\n")
             
             for func in generated_functions:
                 file.write(func)
                 file.write("\n")
+            file.write("#endif // _RL_ALIAS_H")
+            
 
         print(f"Alias file generated: {output_file}")
     except IOError:

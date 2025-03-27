@@ -58,7 +58,7 @@ git clone --recurse-submodules git@github.com:wiredmatt/rayplate.git
 ### Build
 
 ```sh
-cmake -B build && cmake --build build
+cmake -B build -DRL_ALIAS_MODE="INLINE" -DRL_ALIAS_PREFIX="rl" && cmake --build build
 ```
 
 ### Run
@@ -71,12 +71,32 @@ cmake -B build && cmake --build build
 
 ### Disabling rl_alias generation
 
-Set `set(USE_RL_ALIAS_INLINE OFF)` and `set(USE_RL_ALIAS_DEFINE OFF)` in the [./vendor/CMakeLists.txt](./vendor/CMakeLists.txt) file.
+Simply set `RL_ALIAS_MODE=""`
+
+```sh
+cmake -B build -DRL_ALIAS_MODE="" && cmake --build build
+```
 
 ### Enabling inline rl_alias generation
 
-You may enable inline alias by setting `set(USE_RL_ALIAS_INLINE ON)` in the [./vendor/CMakeLists.txt](./vendor/CMakeLists.txt) file.
+Simply set `RL_ALIAS_MODE="INLINE"`
+
+```sh
+cmake -B build -DRL_ALIAS_MODE="INLINE" && cmake --build build
+```
 
 ### Enabling \#define rl_alias generation
 
-You may enable `#define` alias by setting `set(USE_RL_ALIAS_DEFINE ON)` in the [./vendor/CMakeLists.txt](./vendor/CMakeLists.txt) file.
+Simply set `RL_ALIAS_MODE="DEFINE"`
+
+```sh
+cmake -B build -DRL_ALIAS_MODE="DEFINE" && cmake --build build
+```
+
+### Changing the prefix
+
+Simply change `RL_ALIAS_PREFIX=` to whatever you want.
+
+```sh
+cmake -B build -DRL_ALIAS_MODE="YOURMODE" -DRL_ALIAS_PREFIX="CHANGEME" && cmake --build build
+```
