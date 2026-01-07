@@ -1,0 +1,50 @@
+name: Build
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+    branches: ['**']
+
+jobs:
+  build:
+    name: Build on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        include:
+          - os: ubuntu-latest
+            install_deps: sudo apt-get update && sudo apt-get install -y libgl1-mesa-dev libglu1-mesa-dev
+          - os: macos-latest
+            install_deps: ""
+          - os: windows-latest
+            install_deps: ""
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install dependencies
+        if: matrix.install_deps != ''
+        run: ${{ matrix.install_deps }}
+
+      - name: Configure CMake
+        run: cmake -B build -DRL_ALIAS_MODE="INLINE" -DRL_ALIAS_PREFIX="rl"
+
+      - name: Build
+        run: cmake --build build --config Release
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: my_game-${{ matrix.os }}
+          path: |
+            build/my_game
+            build/my_game.exe
+            build/Release/my_game.exe
+          if-no-files-found: ignore
