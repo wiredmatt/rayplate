@@ -48,3 +48,51 @@ jobs:
             build/my_game.exe
             build/Release/my_game.exe
           if-no-files-found: ignore
+
+  release:
+    name: Publish Latest Release
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Prepare release files
+        run: |
+          mkdir -p release
+          # Linux
+          if [ -f artifacts/my_game-ubuntu-latest/my_game ]; then
+            cp artifacts/my_game-ubuntu-latest/my_game release/my_game-linux
+            chmod +x release/my_game-linux
+          fi
+          # macOS
+          if [ -f artifacts/my_game-macos-latest/my_game ]; then
+            cp artifacts/my_game-macos-latest/my_game release/my_game-macos
+            chmod +x release/my_game-macos
+          fi
+          # Windows
+          if [ -f artifacts/my_game-windows-latest/my_game.exe ]; then
+            cp artifacts/my_game-windows-latest/my_game.exe release/my_game-windows.exe
+          elif [ -f artifacts/my_game-windows-latest/Release/my_game.exe ]; then
+            cp artifacts/my_game-windows-latest/Release/my_game.exe release/my_game-windows.exe
+          fi
+
+      - name: Update latest release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: latest
+          name: Latest Build
+          body: |
+            Automatic build from the latest commit on main branch.
+
+            **Commit:** ${{ github.sha }}
+            **Date:** ${{ github.event.head_commit.timestamp }}
+          files: release/*
+          prerelease: false
+          draft: false
