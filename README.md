@@ -58,7 +58,7 @@ git clone --recurse-submodules git@github.com:wiredmatt/rayplate.git
 ### Build
 
 ```sh
-cmake -B build -DRL_ALIAS_MODE="INLINE" -DRL_ALIAS_PREFIX="rl" && cmake --build build
+cmake -B build -DRL_ALIAS_MODE="INLINE" -DRL_ALIAS_PREFIX="rl" && cmake --build build # make sure to reload your IDE afterwards so rl_alias.h gets picked up and you get proper intellisense.
 ```
 
 ### Run
