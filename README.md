@@ -149,6 +149,20 @@ python3 -m http.server --directory build/web 8000
 
 Then open `http://localhost:8000/my_game.html`.
 
+## Releases
+
+Pushing to `main` updates the rolling `latest` release. To publish an immutable
+versioned release, push a semver-style tag:
+
+```sh
+git checkout main
+git pull
+git tag v1.2.3
+git push origin v1.2.3
+```
+
+Tags containing `-alpha`, `-beta`, or `-rc` are published as prereleases.
+
 ## Customizing rl_alias generation
 
 ### Disabling rl_alias generation

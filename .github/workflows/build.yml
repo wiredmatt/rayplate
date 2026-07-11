@@ -3,6 +3,8 @@ name: Build
 on:
   push:
     branches: ['**']
+    tags:
+      - 'v*'
   pull_request:
     branches: ['**']
 
@@ -149,4 +151,55 @@ jobs:
             **Date:** ${{ github.event.head_commit.timestamp }}
           files: release/*
           prerelease: false
+          draft: false
+
+  release-version:
+    name: Publish Versioned Release
+    runs-on: ubuntu-latest
+    needs: [build, build-web]
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Prepare release files
+        run: |
+          mkdir -p release
+          # Linux
+          if [ -f artifacts/my_game-ubuntu-latest/my_game ]; then
+            cp artifacts/my_game-ubuntu-latest/my_game "release/my_game-linux-${{ github.ref_name }}"
+            chmod +x "release/my_game-linux-${{ github.ref_name }}"
+          fi
+          # macOS
+          if [ -f artifacts/my_game-macos-latest/my_game ]; then
+            cp artifacts/my_game-macos-latest/my_game "release/my_game-macos-${{ github.ref_name }}"
+            chmod +x "release/my_game-macos-${{ github.ref_name }}"
+          fi
+          # Windows
+          if [ -f artifacts/my_game-windows-latest/my_game.exe ]; then
+            cp artifacts/my_game-windows-latest/my_game.exe "release/my_game-windows-${{ github.ref_name }}.exe"
+          elif [ -f artifacts/my_game-windows-latest/Release/my_game.exe ]; then
+            cp artifacts/my_game-windows-latest/Release/my_game.exe "release/my_game-windows-${{ github.ref_name }}.exe"
+          fi
+          # Web
+          if [ -d artifacts/my_game-web ]; then
+            (cd artifacts/my_game-web && zip -r "../../release/my_game-web-${{ github.ref_name }}.zip" .)
+          fi
+
+      - name: Create versioned release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: ${{ github.ref_name }}
+          body: |
+            Release ${{ github.ref_name }}.
+
+            **Commit:** ${{ github.sha }}
+          files: release/*
+          prerelease: ${{ contains(github.ref_name, '-alpha') || contains(github.ref_name, '-beta') || contains(github.ref_name, '-rc') }}
           draft: false
