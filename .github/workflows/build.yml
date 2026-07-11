@@ -108,6 +108,11 @@ jobs:
           git tag -f latest "${{ github.sha }}"
           git push origin refs/tags/latest --force
 
+      - name: Delete existing latest release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release delete latest --yes --repo "$GITHUB_REPOSITORY" || true
+
       - name: Prepare release files
         run: |
           mkdir -p release
