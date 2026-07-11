@@ -17,11 +17,14 @@ jobs:
         os: [ubuntu-latest, macos-latest, windows-latest]
         include:
           - os: ubuntu-latest
-            install_deps: sudo apt-get update && sudo apt-get install -y libgl1-mesa-dev libglu1-mesa-dev libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev libxext-dev
+            install_deps: sudo apt-get update && sudo apt-get install -y build-essential cmake git libgl1-mesa-dev libwayland-bin libwayland-dev libx11-dev libxcursor-dev libxext-dev libxi-dev libxinerama-dev libxrandr-dev libxkbcommon-dev pkg-config && (sudo apt-get install -y libsdl3-dev || sudo apt-get install -y libsdl2-dev)
+            cmake_args: -DPLATFORM=SDL
           - os: macos-latest
-            install_deps: ""
+            install_deps: brew install sdl3 pkg-config
+            cmake_args: -DPLATFORM=SDL
           - os: windows-latest
-            install_deps: ""
+            install_deps: '& "$env:VCPKG_INSTALLATION_ROOT/vcpkg.exe" install sdl3:x64-windows-static'
+            cmake_args: -DPLATFORM=SDL -DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake -DVCPKG_TARGET_TRIPLET=x64-windows-static
 
     steps:
       - name: Checkout code
@@ -34,7 +37,7 @@ jobs:
         run: ${{ matrix.install_deps }}
 
       - name: Configure CMake
-        run: cmake -B build -DRL_ALIAS_MODE="INLINE" -DRL_ALIAS_PREFIX="rl"
+        run: cmake -B build ${{ matrix.cmake_args }} -DRL_ALIAS_MODE="INLINE" -DRL_ALIAS_PREFIX="rl"
 
       - name: Build
         run: cmake --build build --config Release

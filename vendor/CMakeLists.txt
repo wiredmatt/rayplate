@@ -11,25 +11,31 @@ add_subdirectory(raylib EXCLUDE_FROM_ALL)
 set(RAYLIB_HEADER_PATH "${CMAKE_CURRENT_SOURCE_DIR}/raylib/src/raylib.h")
 set(RL_ALIAS_HEADER_DIR "${CMAKE_CURRENT_BINARY_DIR}/aliased")
 set(RL_ALIAS_HEADER_PATH "${RL_ALIAS_HEADER_DIR}/rl_alias.h")
+set(VENDOR_PLATFORM_LIBS "")
 
-# Determine alias script path if aliasing is enabled
+if(UNIX AND NOT APPLE)
+    list(APPEND VENDOR_PLATFORM_LIBS m)
+endif()
+
+# Determine alias generation if aliasing is enabled
 message("RL_ALIAS_MODE=" ${RL_ALIAS_MODE})
 message("RL_ALIAS_PREFIX=" ${RL_ALIAS_PREFIX})
 if (NOT RL_ALIAS_MODE STREQUAL "")
-    if (RL_ALIAS_MODE STREQUAL "INLINE")
-        set(ALIAS_SCRIPT_PATH "${CMAKE_CURRENT_SOURCE_DIR}/rl_alias_inline.py")
-    elseif(RL_ALIAS_MODE STREQUAL "DEFINE")
-        set(ALIAS_SCRIPT_PATH "${CMAKE_CURRENT_SOURCE_DIR}/rl_alias_define.py")
-    else()
+    if (NOT RL_ALIAS_MODE STREQUAL "INLINE" AND NOT RL_ALIAS_MODE STREQUAL "DEFINE")
         message(FATAL_ERROR ${RL_ALIAS_MODE} " mode is not supported.")
     endif()
 
-    find_package(Python REQUIRED)
+    set(ALIAS_SCRIPT_PATH "${CMAKE_CURRENT_SOURCE_DIR}/generate_rl_alias.cmake")
     file(MAKE_DIRECTORY ${RL_ALIAS_HEADER_DIR})
 
     add_custom_command(
         OUTPUT ${RL_ALIAS_HEADER_PATH}
-        COMMAND ${Python_EXECUTABLE} ${ALIAS_SCRIPT_PATH} ${RAYLIB_HEADER_PATH} ${RL_ALIAS_HEADER_PATH} ${RL_ALIAS_PREFIX}
+        COMMAND ${CMAKE_COMMAND}
+            -DRAYLIB_HEADER_PATH=${RAYLIB_HEADER_PATH}
+            -DRL_ALIAS_HEADER_PATH=${RL_ALIAS_HEADER_PATH}
+            -DRL_ALIAS_MODE=${RL_ALIAS_MODE}
+            -DRL_ALIAS_PREFIX=${RL_ALIAS_PREFIX}
+            -P ${ALIAS_SCRIPT_PATH}
         DEPENDS ${RAYLIB_HEADER_PATH} ${ALIAS_SCRIPT_PATH}
         COMMENT "Generating rl_alias.h"
         VERBATIM
@@ -42,7 +48,7 @@ if (NOT RL_ALIAS_MODE STREQUAL "")
     target_include_directories(raylib_alias INTERFACE ${RL_ALIAS_HEADER_DIR})
 
     add_dependencies(vendor generate_raylib_alias)
-    target_link_libraries(vendor INTERFACE raylib raylib_alias) # link raylib + alias
+    target_link_libraries(vendor INTERFACE raylib ${VENDOR_PLATFORM_LIBS} raylib_alias) # link raylib + platform libs + alias
 else()
-    target_link_libraries(vendor INTERFACE raylib) # only link raylib
+    target_link_libraries(vendor INTERFACE raylib ${VENDOR_PLATFORM_LIBS}) # only link raylib + platform libs
 endif()
