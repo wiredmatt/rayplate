@@ -61,10 +61,20 @@ jobs:
       contents: write
 
     steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
       - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
           path: artifacts
+
+      - name: Move latest tag to current commit
+        run: |
+          git tag -f latest "${{ github.sha }}"
+          git push origin refs/tags/latest --force
 
       - name: Prepare release files
         run: |
