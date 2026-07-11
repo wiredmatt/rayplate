@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.5)
+cmake_minimum_required(VERSION 3.25)
 
 # Create the vendor INTERFACE library
 add_library(vendor INTERFACE)
@@ -13,7 +13,7 @@ set(RL_ALIAS_HEADER_DIR "${CMAKE_CURRENT_BINARY_DIR}/aliased")
 set(RL_ALIAS_HEADER_PATH "${RL_ALIAS_HEADER_DIR}/rl_alias.h")
 set(VENDOR_PLATFORM_LIBS "")
 
-if(UNIX AND NOT APPLE)
+if(UNIX AND NOT APPLE AND NOT EMSCRIPTEN)
     list(APPEND VENDOR_PLATFORM_LIBS m)
 endif()
 

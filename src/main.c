@@ -25,6 +25,12 @@
  ********************************************************************************************/
 #include <rl_alias.h>
 
+#if defined(PLATFORM_WEB)
+    #include <emscripten/emscripten.h>
+#endif
+
+static void UpdateDrawFrame(void);
+
 //------------------------------------------------------------------------------------
 // Program main entry point
 //------------------------------------------------------------------------------------
@@ -40,28 +46,15 @@ int main(void)
     rlSetTargetFPS(60); // Set our game to run at 60 frames-per-second
     //--------------------------------------------------------------------------------------
 
+#if defined(PLATFORM_WEB)
+    emscripten_set_main_loop(UpdateDrawFrame, 60, 1);
+#else
     // Main game loop
     while (!rlWindowShouldClose()) // Detect window close button or ESC key
     {
-        // Update
-        //----------------------------------------------------------------------------------
-        //----------------------------------------------------------------------------------
-
-        // Draw
-        //----------------------------------------------------------------------------------
-        // clang-format off
-
-        rlBeginDrawing();
-
-            rlClearBackground(RAYWHITE);
-
-            rlDrawText("Congrats! You created your first window!", 190, 200, 20, LIGHTGRAY);
-
-        rlEndDrawing();
-
-        // clang-format on
-        //----------------------------------------------------------------------------------
+        UpdateDrawFrame();
     }
+#endif
 
     // De-Initialization
     //--------------------------------------------------------------------------------------
@@ -69,4 +62,26 @@ int main(void)
     //--------------------------------------------------------------------------------------
 
     return 0;
+}
+
+static void UpdateDrawFrame(void)
+{
+    // Update
+    //----------------------------------------------------------------------------------
+    //----------------------------------------------------------------------------------
+
+    // Draw
+    //----------------------------------------------------------------------------------
+    // clang-format off
+
+    rlBeginDrawing();
+
+        rlClearBackground(RAYWHITE);
+
+        rlDrawText("Congrats! You created your first window!", 190, 200, 20, LIGHTGRAY);
+
+    rlEndDrawing();
+
+    // clang-format on
+    //----------------------------------------------------------------------------------
 }

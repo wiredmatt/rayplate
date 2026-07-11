@@ -85,6 +85,8 @@ sudo apt install \
 These packages provide CMake, a C compiler, OpenGL headers, SDL, and the
 Wayland/X11 development headers used by Linux desktop backends.
 
+raylib 6.0 requires CMake 3.25 or newer.
+
 If `libsdl3-dev` is not available on your Debian version, install
 `libsdl2-dev` instead. raylib checks for SDL3 first and falls back to SDL2.
 
@@ -116,9 +118,36 @@ cmake -B build/glfw-wayland -DPLATFORM=Desktop -DRL_ALIAS_MODE="INLINE" -DRL_ALI
 ./build/glfw-wayland/my_game
 ```
 
-### Cross-platform releases
+### Build for web
 
-The local CMake commands are intended for building and running the game on the host machine. Cross-platform release artifacts for Windows, macOS, web, Android, and other targets should be produced by CI/CD using target-specific toolchains.
+On Debian, install Emscripten:
+
+```sh
+sudo apt install emscripten
+```
+
+Then configure through `emcmake`:
+
+```sh
+emcmake cmake -B build/web -DPLATFORM=Web -DRL_ALIAS_MODE="INLINE" -DRL_ALIAS_PREFIX="rl"
+cmake --build build/web
+```
+
+The web build produces:
+
+```sh
+./build/web/my_game.html
+./build/web/my_game.js
+./build/web/my_game.wasm
+```
+
+Serve the build directory with a local web server:
+
+```sh
+python3 -m http.server --directory build/web 8000
+```
+
+Then open `http://localhost:8000/my_game.html`.
 
 ## Customizing rl_alias generation
 

@@ -52,10 +52,42 @@ jobs:
             build/Release/my_game.exe
           if-no-files-found: ignore
 
+  build-web:
+    name: Build WebAssembly
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Setup Emscripten
+        uses: emscripten-core/setup-emsdk@v15
+        with:
+          version: 5.0.3
+          actions-cache-folder: emsdk-cache
+
+      - name: Configure CMake
+        run: emcmake cmake -B build/web -DPLATFORM=Web -DRL_ALIAS_MODE="INLINE" -DRL_ALIAS_PREFIX="rl"
+
+      - name: Build
+        run: cmake --build build/web --config Release
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: my_game-web
+          path: |
+            build/web/my_game.html
+            build/web/my_game.js
+            build/web/my_game.wasm
+          if-no-files-found: error
+
   release:
     name: Publish Latest Release
     runs-on: ubuntu-latest
-    needs: build
+    needs: [build, build-web]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     permissions:
       contents: write
@@ -94,6 +126,10 @@ jobs:
             cp artifacts/my_game-windows-latest/my_game.exe release/my_game-windows.exe
           elif [ -f artifacts/my_game-windows-latest/Release/my_game.exe ]; then
             cp artifacts/my_game-windows-latest/Release/my_game.exe release/my_game-windows.exe
+          fi
+          # Web
+          if [ -d artifacts/my_game-web ]; then
+            (cd artifacts/my_game-web && zip -r ../../release/my_game-web.zip .)
           fi
 
       - name: Update latest release
