@@ -1,6 +1,6 @@
 # Rayplate
 
-A neat raylib 6.0 template using git submodules, cmake and custom aliases, mapping functions such as `InitWindow` to `rlInitWindow`; fully customizable and available either through `#define` macros, or static inline (default).
+A neat raylib 6.0 template using CMake and custom aliases, mapping functions such as `InitWindow` to `rlInitWindow`; fully customizable and available either through `#define` macros, or static inline (default). CMake downloads the pinned raylib release automatically during configuration.
 
 ```c
 #include <rl_alias.h>
@@ -49,10 +49,10 @@ int main(void)
 
 ## Setup
 
-### Clone repo with submodules included
+### Clone the repository
 
 ```sh
-git clone --recurse-submodules git@github.com:wiredmatt/rayplate.git
+git clone git@github.com:wiredmatt/rayplate.git
 cd rayplate
 ```
 
