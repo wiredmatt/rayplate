@@ -4,6 +4,11 @@ set(CMAKE_C_STANDARD 99)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 
+set(RL_ALIAS_MODE "INLINE" CACHE STRING "Alias implementation: INLINE, DEFINE, or empty to disable")
+set_property(CACHE RL_ALIAS_MODE PROPERTY STRINGS "INLINE" "DEFINE" "")
+set(RAYLIB_ALIAS_PREFIX "RLIB_" CACHE STRING "Prefix for raylib API aliases")
+set(RLGL_ALIAS_PREFIX "RLGL_" CACHE STRING "Prefix for rlgl API aliases")
+
 # Download and configure raylib.
 include(FetchContent)
 
@@ -16,13 +21,15 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(raylib)
 
-# Generate optional prefixed aliases for the raylib API.
+# Generate optional prefixed aliases for the raylib and rlgl APIs.
 set(RAYLIB_HEADER_PATH "${raylib_SOURCE_DIR}/src/raylib.h")
+set(RLGL_HEADER_PATH "${raylib_SOURCE_DIR}/src/rlgl.h")
 set(RL_ALIAS_HEADER_DIR "${CMAKE_BINARY_DIR}/aliased")
 set(RL_ALIAS_HEADER_PATH "${RL_ALIAS_HEADER_DIR}/rl_alias.h")
 
 message("RL_ALIAS_MODE=" ${RL_ALIAS_MODE})
-message("RL_ALIAS_PREFIX=" ${RL_ALIAS_PREFIX})
+message("RAYLIB_ALIAS_PREFIX=" ${RAYLIB_ALIAS_PREFIX})
+message("RLGL_ALIAS_PREFIX=" ${RLGL_ALIAS_PREFIX})
 
 if(NOT RL_ALIAS_MODE STREQUAL "")
     if(NOT RL_ALIAS_MODE STREQUAL "INLINE" AND NOT RL_ALIAS_MODE STREQUAL "DEFINE")
@@ -36,11 +43,13 @@ if(NOT RL_ALIAS_MODE STREQUAL "")
         OUTPUT "${RL_ALIAS_HEADER_PATH}"
         COMMAND ${CMAKE_COMMAND}
             -DRAYLIB_HEADER_PATH=${RAYLIB_HEADER_PATH}
+            -DRLGL_HEADER_PATH=${RLGL_HEADER_PATH}
             -DRL_ALIAS_HEADER_PATH=${RL_ALIAS_HEADER_PATH}
             -DRL_ALIAS_MODE=${RL_ALIAS_MODE}
-            -DRL_ALIAS_PREFIX=${RL_ALIAS_PREFIX}
+            -DRAYLIB_ALIAS_PREFIX=${RAYLIB_ALIAS_PREFIX}
+            -DRLGL_ALIAS_PREFIX=${RLGL_ALIAS_PREFIX}
             -P ${ALIAS_SCRIPT_PATH}
-        DEPENDS "${RAYLIB_HEADER_PATH}" "${ALIAS_SCRIPT_PATH}"
+        DEPENDS "${RAYLIB_HEADER_PATH}" "${RLGL_HEADER_PATH}" "${ALIAS_SCRIPT_PATH}"
         COMMENT "Generating rl_alias.h"
         VERBATIM
     )

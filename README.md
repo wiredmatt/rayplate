@@ -1,6 +1,6 @@
 # Rayplate
 
-A neat raylib 6.0 template using CMake and custom aliases, mapping functions such as `InitWindow` to `rlInitWindow`; fully customizable and available either through `#define` macros, or static inline (default). CMake downloads the pinned raylib release automatically during configuration.
+A neat raylib 6.0 template using CMake and collision-free, SDL-style aliases for both API layers. Public raylib functions such as `InitWindow` become `RLIB_InitWindow`, while low-level rlgl functions such as `rlLoadShader` become `RLGL_LoadShader`. The aliases are customizable and available either through `#define` macros or static inline wrappers (default). CMake downloads the pinned raylib release automatically during configuration.
 
 ```c
 #include <rl_alias.h>
@@ -12,13 +12,13 @@ int main(void)
     const int screenWidth = 800;
     const int screenHeight = 450;
 
-    rlInitWindow(screenWidth, screenHeight, "raylib [core] example - basic window");
+    RLIB_InitWindow(screenWidth, screenHeight, "raylib [core] example - basic window");
 
-    rlSetTargetFPS(60); // Set our game to run at 60 frames-per-second
+    RLIB_SetTargetFPS(60); // Set our game to run at 60 frames-per-second
     //--------------------------------------------------------------------------------------
 
     // Main game loop
-    while (!rlWindowShouldClose()) // Detect window close button or ESC key
+    while (!RLIB_WindowShouldClose()) // Detect window close button or ESC key
     {
         // Update
         //----------------------------------------------------------------------------------
@@ -27,20 +27,20 @@ int main(void)
         // Draw
         //----------------------------------------------------------------------------------
 
-        rlBeginDrawing();
+        RLIB_BeginDrawing();
 
-            rlClearBackground(RAYWHITE);
+            RLIB_ClearBackground(RAYWHITE);
 
-            rlDrawText("Congrats! You created your first window!", 190, 200, 20, LIGHTGRAY);
+            RLIB_DrawText("Congrats! You created your first window!", 190, 200, 20, LIGHTGRAY);
 
-        rlEndDrawing();
+        RLIB_EndDrawing();
 
         //----------------------------------------------------------------------------------
     }
 
     // De-Initialization
     //--------------------------------------------------------------------------------------
-    rlCloseWindow(); // Close window and OpenGL context
+    RLIB_CloseWindow(); // Close window and OpenGL context
     //--------------------------------------------------------------------------------------
 
     return 0;
@@ -93,7 +93,7 @@ If `libsdl3-dev` is not available on your Debian version, install
 ### Build
 
 ```sh
-cmake -B build -DPLATFORM=SDL -DRL_ALIAS_MODE="INLINE" -DRL_ALIAS_PREFIX="rl" && cmake --build build # make sure to reload your IDE afterwards so rl_alias.h gets picked up and you get proper intellisense.
+cmake -B build -DPLATFORM=SDL -DRL_ALIAS_MODE="INLINE" -DRAYLIB_ALIAS_PREFIX="RLIB_" -DRLGL_ALIAS_PREFIX="RLGL_" && cmake --build build # make sure to reload your IDE afterwards so rl_alias.h gets picked up and you get proper intellisense.
 ```
 
 ### Optional GLFW backend builds
@@ -103,11 +103,11 @@ bundled GLFW backend, use a dedicated build directory so CMake cache values do
 not conflict between backends.
 
 ```sh
-cmake -B build/glfw-x11 -DPLATFORM=Desktop -DRL_ALIAS_MODE="INLINE" -DRL_ALIAS_PREFIX="rl" -DGLFW_BUILD_X11=ON -DGLFW_BUILD_WAYLAND=OFF && cmake --build build/glfw-x11
+cmake -B build/glfw-x11 -DPLATFORM=Desktop -DRL_ALIAS_MODE="INLINE" -DRAYLIB_ALIAS_PREFIX="RLIB_" -DRLGL_ALIAS_PREFIX="RLGL_" -DGLFW_BUILD_X11=ON -DGLFW_BUILD_WAYLAND=OFF && cmake --build build/glfw-x11
 ```
 
 ```sh
-cmake -B build/glfw-wayland -DPLATFORM=Desktop -DRL_ALIAS_MODE="INLINE" -DRL_ALIAS_PREFIX="rl" -DGLFW_BUILD_X11=OFF -DGLFW_BUILD_WAYLAND=ON && cmake --build build/glfw-wayland
+cmake -B build/glfw-wayland -DPLATFORM=Desktop -DRL_ALIAS_MODE="INLINE" -DRAYLIB_ALIAS_PREFIX="RLIB_" -DRLGL_ALIAS_PREFIX="RLGL_" -DGLFW_BUILD_X11=OFF -DGLFW_BUILD_WAYLAND=ON && cmake --build build/glfw-wayland
 ```
 
 ### Run
@@ -129,7 +129,7 @@ sudo apt install emscripten
 Then configure through `emcmake`:
 
 ```sh
-emcmake cmake -B build/web -DPLATFORM=Web -DRL_ALIAS_MODE="INLINE" -DRL_ALIAS_PREFIX="rl"
+emcmake cmake -B build/web -DPLATFORM=Web -DRL_ALIAS_MODE="INLINE" -DRAYLIB_ALIAS_PREFIX="RLIB_" -DRLGL_ALIAS_PREFIX="RLGL_"
 cmake --build build/web
 ```
 
@@ -163,11 +163,16 @@ git push origin v1.2.3
 
 Tags containing `-alpha`, `-beta`, or `-rc` are published as prereleases.
 
-## Customizing rl_alias generation
+## Customizing API alias generation
+
+The generated `rl_alias.h` includes both API layers:
+
+- raylib functions use `RAYLIB_ALIAS_PREFIX` (`RLIB_` by default), for example `RLIB_LoadShader`.
+- rlgl functions use `RLGL_ALIAS_PREFIX` (`RLGL_` by default). Their existing `rl` or `rlgl` prefix is replaced, so `rlLoadShader` becomes `RLGL_LoadShader` and `rlglInit` becomes `RLGL_Init`.
 
 ### Disabling rl_alias generation
 
-Simply set `RL_ALIAS_MODE=""`
+Set `RL_ALIAS_MODE=""`. The bundled example uses the generated names, so application source must also switch to `#include <raylib.h>` and the original raylib function names when aliases are disabled.
 
 ```sh
 cmake -B build -DPLATFORM=SDL -DRL_ALIAS_MODE="" && cmake --build build
@@ -189,10 +194,10 @@ Simply set `RL_ALIAS_MODE="DEFINE"`
 cmake -B build -DPLATFORM=SDL -DRL_ALIAS_MODE="DEFINE" && cmake --build build
 ```
 
-### Changing the prefix
+### Changing the prefixes
 
-Simply change `RL_ALIAS_PREFIX=` to whatever you want.
+Change either prefix independently. Prefixes are concatenated with the existing PascalCase function suffix.
 
 ```sh
-cmake -B build -DPLATFORM=SDL -DRL_ALIAS_MODE="INLINE" -DRL_ALIAS_PREFIX="CHANGEME" && cmake --build build
+cmake -B build -DPLATFORM=SDL -DRL_ALIAS_MODE="INLINE" -DRAYLIB_ALIAS_PREFIX="GAME_" -DRLGL_ALIAS_PREFIX="GPU_" && cmake --build build
 ```

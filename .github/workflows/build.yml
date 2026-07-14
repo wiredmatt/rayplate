@@ -37,7 +37,7 @@ jobs:
         run: ${{ matrix.install_deps }}
 
       - name: Configure CMake
-        run: cmake -B build ${{ matrix.cmake_args }} -DRL_ALIAS_MODE="INLINE" -DRL_ALIAS_PREFIX="rl"
+        run: cmake -B build ${{ matrix.cmake_args }} -DRL_ALIAS_MODE="INLINE" -DRAYLIB_ALIAS_PREFIX="RLIB_" -DRLGL_ALIAS_PREFIX="RLGL_"
 
       - name: Build
         run: cmake --build build --config Release
@@ -67,7 +67,7 @@ jobs:
           actions-cache-folder: emsdk-cache
 
       - name: Configure CMake
-        run: emcmake cmake -B build/web -DPLATFORM=Web -DRL_ALIAS_MODE="INLINE" -DRL_ALIAS_PREFIX="rl"
+        run: emcmake cmake -B build/web -DPLATFORM=Web -DRL_ALIAS_MODE="INLINE" -DRAYLIB_ALIAS_PREFIX="RLIB_" -DRLGL_ALIAS_PREFIX="RLGL_"
 
       - name: Build
         run: cmake --build build/web --config Release
