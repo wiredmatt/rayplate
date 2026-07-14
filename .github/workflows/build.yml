@@ -54,11 +54,12 @@ jobs:
         run: |
           for api in opengl vulkan; do
             set +e
-            timeout 5s xvfb-run -a build/my_game --graphics-api="$api" >"$api.log" 2>&1
+            timeout 15s xvfb-run -a stdbuf -oL -eL \
+              build/my_game --graphics-api="$api" >"$api.log" 2>&1
             status=$?
             set -e
+            cat "$api.log"
             if [[ "$status" -ne 124 ]]; then
-              cat "$api.log"
               exit 1
             fi
             grep 'DISPLAY: Device initialized successfully' "$api.log"
