@@ -2,6 +2,7 @@
 # the complete deterministic .tar.gz bundle, not only the shared libraries.
 set(RAYPLATE_ANGLE_ELECTRON_VERSION "43.1.1")
 set(RAYPLATE_ANGLE_RELEASE_REPOSITORY "wiredmatt/rayplate")
+set(RAYPLATE_ANGLE_RELEASE_TAG "angle-electron-v43.1.1")
 
 # Filled from the deterministic output of scripts/package_angle.py. These
 # values intentionally live in source control so replacing a GitHub release

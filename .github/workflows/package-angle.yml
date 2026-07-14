@@ -7,9 +7,13 @@ on:
         description: Electron version to extract ANGLE from (without a leading v)
         required: true
         default: '43.1.1'
+      package_revision:
+        description: Immutable package revision for this Electron version
+        required: true
+        default: '1'
 
 concurrency:
-  group: package-angle-${{ inputs.electron_version }}
+  group: package-angle-${{ inputs.electron_version }}-r${{ inputs.package_revision }}
   cancel-in-progress: false
 
 jobs:
@@ -96,13 +100,22 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           ELECTRON_VERSION: ${{ inputs.electron_version }}
+          PACKAGE_REVISION: ${{ inputs.package_revision }}
         run: |
           if [[ ! "$ELECTRON_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+([+-][0-9A-Za-z.-]+)?$ ]]; then
             echo "Invalid Electron version: $ELECTRON_VERSION" >&2
             exit 1
           fi
 
+          if [[ ! "$PACKAGE_REVISION" =~ ^[1-9][0-9]*$ ]]; then
+            echo "Invalid package revision: $PACKAGE_REVISION" >&2
+            exit 1
+          fi
+
           tag="angle-electron-v${ELECTRON_VERSION}"
+          if [[ "$PACKAGE_REVISION" != "1" ]]; then
+            tag="${tag}-r${PACKAGE_REVISION}"
+          fi
           if gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             echo "Release $tag already exists; refusing to replace immutable artifacts." >&2
             exit 1
@@ -111,7 +124,7 @@ jobs:
           gh release create "$tag" release/* \
             --repo "$GITHUB_REPOSITORY" \
             --target "$GITHUB_SHA" \
-            --title "ANGLE runtime from Electron v${ELECTRON_VERSION}" \
+            --title "ANGLE runtime from Electron v${ELECTRON_VERSION} (package r${PACKAGE_REVISION})" \
             --latest=false \
             --notes "$(cat <<EOF
           Reproducible ANGLE runtime bundles extracted byte-for-byte from the official Electron v${ELECTRON_VERSION} archives.
@@ -125,5 +138,6 @@ jobs:
 
           Source: https://github.com/electron/electron/releases/tag/v${ELECTRON_VERSION}
           Workflow commit: ${GITHUB_SHA}
+          Package revision: ${PACKAGE_REVISION}
           EOF
           )"

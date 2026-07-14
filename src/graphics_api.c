@@ -81,6 +81,40 @@ static int SetAnglePlatform(const char *value)
 #endif
 }
 
+#if defined(__linux__)
+static int ConfigureLinuxVulkanLoader(void)
+{
+    const char *driverFiles = getenv("VK_DRIVER_FILES");
+    const char *legacyDriverFiles = getenv("VK_ICD_FILENAMES");
+    const char *selectedDrivers = getenv("VK_LOADER_DRIVERS_SELECT");
+    const char *disabledDrivers = getenv("VK_LOADER_DRIVERS_DISABLE");
+
+    // The Vulkan loader enumerates every installed ICD.  Stale system
+    // SwiftShader builds can crash while ANGLE queries device properties, so
+    // keep the hardware path clear unless the user explicitly selected ICDs.
+    if ((driverFiles != NULL && driverFiles[0] != '\0') ||
+        (legacyDriverFiles != NULL && legacyDriverFiles[0] != '\0') ||
+        (selectedDrivers != NULL && selectedDrivers[0] != '\0'))
+    {
+        return 1;
+    }
+    if (disabledDrivers == NULL || disabledDrivers[0] == '\0')
+    {
+        return setenv("VK_LOADER_DRIVERS_DISABLE", "*swiftshader*", 1) == 0;
+    }
+    if (strstr(disabledDrivers, "swiftshader") != NULL) return 1;
+
+    size_t length = strlen(disabledDrivers) + strlen(",*swiftshader*") + 1;
+    char *combined = malloc(length);
+    if (combined == NULL) return 0;
+    int written = snprintf(combined, length, "%s,*swiftshader*", disabledDrivers);
+    int result = (written > 0 && (size_t)written < length &&
+                  setenv("VK_LOADER_DRIVERS_DISABLE", combined, 1) == 0);
+    free(combined);
+    return result;
+}
+#endif
+
 GraphicsApiConfigureResult GraphicsApiConfigure(int argc, char **argv)
 {
     const char *requested = NULL;
@@ -124,6 +158,14 @@ GraphicsApiConfigureResult GraphicsApiConfigure(int argc, char **argv)
         fprintf(stderr, "Could not set ANGLE_DEFAULT_PLATFORM\n");
         return GRAPHICS_API_CONFIGURE_ERROR;
     }
+#if defined(__linux__)
+    if (StringEquals(selectedChoice->argument, "vulkan") &&
+        !ConfigureLinuxVulkanLoader())
+    {
+        fprintf(stderr, "Could not configure the Vulkan loader\n");
+        return GRAPHICS_API_CONFIGURE_ERROR;
+    }
+#endif
     glfwInitHint(GLFW_ANGLE_PLATFORM_TYPE, selectedChoice->glfwAngleType);
     return GRAPHICS_API_CONFIGURE_CONTINUE;
 }

@@ -85,7 +85,7 @@ cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build --parallel
 ```
 
-The ANGLE libraries and their license/provenance manifest are staged beside the executable automatically.
+The ANGLE libraries, Electron's matching Linux Vulkan loader, and their license/provenance manifest are staged beside the executable automatically.
 
 Electron's Windows ARM64 ANGLE build does not contain the WGL/OpenGL renderer, so that one architecture intentionally omits `opengl`. The packaging script fails closed if an Electron update lacks any backend expected for its target.
 
@@ -123,7 +123,7 @@ cmake -S . -B build/local-angle \
 cmake --build build/local-angle --parallel
 ```
 
-The directory may be an extracted Rayplate bundle or any directory tree containing the platform's matching `libEGL` and `libGLESv2` shared libraries.
+The directory may be an extracted Rayplate bundle or any directory tree containing the platform's matching `libEGL` and `libGLESv2` shared libraries. Electron's Linux build also needs its matching `libvulkan.so.1` beside ANGLE when the Vulkan backend is used; the Rayplate bundle includes it automatically.
 
 To use a local Rayplate bundle:
 
@@ -186,7 +186,9 @@ gh workflow run package-angle.yml -f electron_version=43.1.1
 gh run watch
 ```
 
-After publishing a new Electron version, update the version and six bundle hashes in `cmake/AngleArtifacts.cmake`. Keeping those hashes in the source tree means a replaced or tampered GitHub asset is rejected during CMake configuration.
+Package revision `1` uses the `angle-electron-v<version>` tag. If packaging for an Electron version must be corrected without replacing immutable assets, dispatch with `-f package_revision=2` (or the next unused number); this publishes `angle-electron-v<version>-r2`.
+
+After publishing, update the version, release tag, and six bundle hashes in `cmake/AngleArtifacts.cmake`. Keeping those hashes in the source tree means a replaced or tampered GitHub asset is rejected during CMake configuration.
 
 Verify a downloaded release bundle manually:
 

@@ -20,6 +20,7 @@ class PackageAngleTests(unittest.TestCase):
         with zipfile.ZipFile(archive, "w") as output:
             output.writestr("libEGL.so", b"egl")
             output.writestr("libGLESv2.so", gles_bytes)
+            output.writestr("libvulkan.so.1", b"vulkan loader")
             output.writestr("LICENSE", b"electron license")
             output.writestr("LICENSES.chromium.html", b"chromium licenses")
             output.writestr("electron", b"must not be packaged")
@@ -38,6 +39,7 @@ class PackageAngleTests(unittest.TestCase):
                 prefix = "rayplate-angle-electron-1.2.3-linux-x64"
                 self.assertIn(f"{prefix}/bin/libEGL.so", names)
                 self.assertIn(f"{prefix}/bin/libGLESv2.so", names)
+                self.assertIn(f"{prefix}/bin/libvulkan.so.1", names)
                 self.assertNotIn(f"{prefix}/electron", names)
                 manifest_file = bundle.extractfile(f"{prefix}/manifest.json")
                 self.assertIsNotNone(manifest_file)
@@ -45,6 +47,8 @@ class PackageAngleTests(unittest.TestCase):
                 self.assertEqual(manifest["electron"]["archive_sha256"], archive_hash)
                 self.assertEqual(manifest["target"], "linux-x64")
                 self.assertEqual(manifest["backends"], ["vulkan", "opengl"])
+                bundled_paths = {entry["bundle_path"] for entry in manifest["files"]}
+                self.assertIn("bin/libvulkan.so.1", bundled_paths)
 
     def test_bad_archive_hash_is_rejected(self):
         with tempfile.TemporaryDirectory() as temporary:

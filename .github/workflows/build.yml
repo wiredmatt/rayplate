@@ -19,7 +19,7 @@ jobs:
         os: [ubuntu-latest, macos-latest, windows-latest]
         include:
           - os: ubuntu-latest
-            install_deps: sudo apt-get update && sudo apt-get install -y build-essential cmake git libgl1-mesa-dev libwayland-bin libwayland-dev libx11-dev libxcursor-dev libxext-dev libxi-dev libxinerama-dev libxrandr-dev libxkbcommon-dev pkg-config
+            install_deps: sudo apt-get update && sudo apt-get install -y build-essential cmake git libgl1-mesa-dev libwayland-bin libwayland-dev libx11-dev libxcursor-dev libxext-dev libxi-dev libxinerama-dev libxrandr-dev libxkbcommon-dev mesa-vulkan-drivers pkg-config xauth xvfb
             cmake_args: -DRAYPLATE_ANGLE_PROVIDER=DOWNLOAD
           - os: macos-latest
             install_deps: ''
@@ -46,6 +46,24 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           readelf -d build/my_game | grep 'Shared library: \[libGLESv2.so\]'
+          test -f build/libvulkan.so.1
+
+      - name: Smoke test Linux ANGLE backends
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          for api in opengl vulkan; do
+            set +e
+            timeout 5s xvfb-run -a build/my_game --graphics-api="$api" >"$api.log" 2>&1
+            status=$?
+            set -e
+            if [[ "$status" -ne 124 ]]; then
+              cat "$api.log"
+              exit 1
+            fi
+            grep 'DISPLAY: Device initialized successfully' "$api.log"
+            grep "ANGLE: Requested backend:" "$api.log"
+          done
 
       - name: Verify macOS resolves rlgl through ANGLE
         if: runner.os == 'macOS'
@@ -62,9 +80,11 @@ jobs:
             build/Release/my_game.exe
             build/libEGL.*
             build/libGLESv2.*
+            build/libvulkan.so.*
             build/d3dcompiler_47.dll
             build/Release/libEGL.*
             build/Release/libGLESv2.*
+            build/Release/libvulkan.so.*
             build/Release/d3dcompiler_47.dll
             build/angle-licenses/**
             build/Release/angle-licenses/**
