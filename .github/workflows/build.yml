@@ -19,14 +19,14 @@ jobs:
         os: [ubuntu-latest, macos-latest, windows-latest]
         include:
           - os: ubuntu-latest
-            install_deps: sudo apt-get update && sudo apt-get install -y build-essential cmake git libgl1-mesa-dev libwayland-bin libwayland-dev libx11-dev libxcursor-dev libxext-dev libxi-dev libxinerama-dev libxrandr-dev libxkbcommon-dev pkg-config && (sudo apt-get install -y libsdl3-dev || sudo apt-get install -y libsdl2-dev)
-            cmake_args: -DPLATFORM=SDL
+            install_deps: sudo apt-get update && sudo apt-get install -y build-essential cmake git libgl1-mesa-dev libwayland-bin libwayland-dev libx11-dev libxcursor-dev libxext-dev libxi-dev libxinerama-dev libxrandr-dev libxkbcommon-dev pkg-config
+            cmake_args: -DRAYPLATE_ANGLE_PROVIDER=DOWNLOAD
           - os: macos-latest
-            install_deps: brew install sdl3 pkg-config
-            cmake_args: -DPLATFORM=SDL
+            install_deps: ''
+            cmake_args: -DRAYPLATE_ANGLE_PROVIDER=DOWNLOAD
           - os: windows-latest
-            install_deps: '& "$env:VCPKG_INSTALLATION_ROOT/vcpkg.exe" install sdl3:x64-windows-static'
-            cmake_args: -DPLATFORM=SDL -DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake -DVCPKG_TARGET_TRIPLET=x64-windows-static
+            install_deps: ''
+            cmake_args: -DRAYPLATE_ANGLE_PROVIDER=DOWNLOAD
 
     steps:
       - name: Checkout code
@@ -37,7 +37,7 @@ jobs:
         run: ${{ matrix.install_deps }}
 
       - name: Configure CMake
-        run: cmake -B build ${{ matrix.cmake_args }} -DRL_ALIAS_MODE="INLINE" -DRL_ALIAS_PREFIX="rl"
+        run: cmake -B build ${{ matrix.cmake_args }} -DRL_ALIAS_MODE="INLINE" -DRAYLIB_ALIAS_PREFIX="RLIB_" -DRLGL_ALIAS_PREFIX="RLGL_"
 
       - name: Build
         run: cmake --build build --config Release
@@ -50,6 +50,14 @@ jobs:
             build/my_game
             build/my_game.exe
             build/Release/my_game.exe
+            build/libEGL.*
+            build/libGLESv2.*
+            build/d3dcompiler_47.dll
+            build/Release/libEGL.*
+            build/Release/libGLESv2.*
+            build/Release/d3dcompiler_47.dll
+            build/angle-licenses/**
+            build/Release/angle-licenses/**
           if-no-files-found: ignore
 
   build-web:
@@ -67,7 +75,7 @@ jobs:
           actions-cache-folder: emsdk-cache
 
       - name: Configure CMake
-        run: emcmake cmake -B build/web -DPLATFORM=Web -DRL_ALIAS_MODE="INLINE" -DRL_ALIAS_PREFIX="rl"
+        run: emcmake cmake -B build/web -DPLATFORM=Web -DRL_ALIAS_MODE="INLINE" -DRAYLIB_ALIAS_PREFIX="RLIB_" -DRLGL_ALIAS_PREFIX="RLGL_"
 
       - name: Build
         run: cmake --build build/web --config Release
@@ -114,29 +122,15 @@ jobs:
       - name: Prepare release files
         run: |
           mkdir -p release
-          # Linux
-          if [ -f artifacts/my_game-ubuntu-latest/my_game ]; then
-            cp artifacts/my_game-ubuntu-latest/my_game release/my_game-linux
-            chmod +x release/my_game-linux
-          fi
-          # macOS
-          if [ -f artifacts/my_game-macos-latest/my_game ]; then
-            cp artifacts/my_game-macos-latest/my_game release/my_game-macos
-            chmod +x release/my_game-macos
-          fi
-          # Windows
-          if [ -f artifacts/my_game-windows-latest/my_game.exe ]; then
-            cp artifacts/my_game-windows-latest/my_game.exe release/my_game-windows.exe
-          elif [ -f artifacts/my_game-windows-latest/Release/my_game.exe ]; then
-            cp artifacts/my_game-windows-latest/Release/my_game.exe release/my_game-windows.exe
-          fi
-          # Web
+          tar -C artifacts/my_game-ubuntu-latest -czf release/my_game-linux.tar.gz .
+          tar -C artifacts/my_game-macos-latest -czf release/my_game-macos.tar.gz .
+          (cd artifacts/my_game-windows-latest && zip -r ../../release/my_game-windows.zip .)
           if [ -d artifacts/my_game-web ]; then
             (cd artifacts/my_game-web && zip -r ../../release/my_game-web.zip .)
           fi
 
       - name: Update latest release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@3d0d9888cb7fd7b750713d6e236d1fcb99157228 # v3.0.2
         with:
           tag_name: latest
           name: Latest Build
@@ -166,29 +160,15 @@ jobs:
       - name: Prepare release files
         run: |
           mkdir -p release
-          # Linux
-          if [ -f artifacts/my_game-ubuntu-latest/my_game ]; then
-            cp artifacts/my_game-ubuntu-latest/my_game "release/my_game-linux-${{ github.ref_name }}"
-            chmod +x "release/my_game-linux-${{ github.ref_name }}"
-          fi
-          # macOS
-          if [ -f artifacts/my_game-macos-latest/my_game ]; then
-            cp artifacts/my_game-macos-latest/my_game "release/my_game-macos-${{ github.ref_name }}"
-            chmod +x "release/my_game-macos-${{ github.ref_name }}"
-          fi
-          # Windows
-          if [ -f artifacts/my_game-windows-latest/my_game.exe ]; then
-            cp artifacts/my_game-windows-latest/my_game.exe "release/my_game-windows-${{ github.ref_name }}.exe"
-          elif [ -f artifacts/my_game-windows-latest/Release/my_game.exe ]; then
-            cp artifacts/my_game-windows-latest/Release/my_game.exe "release/my_game-windows-${{ github.ref_name }}.exe"
-          fi
-          # Web
+          tar -C artifacts/my_game-ubuntu-latest -czf "release/my_game-linux-${{ github.ref_name }}.tar.gz" .
+          tar -C artifacts/my_game-macos-latest -czf "release/my_game-macos-${{ github.ref_name }}.tar.gz" .
+          (cd artifacts/my_game-windows-latest && zip -r "../../release/my_game-windows-${{ github.ref_name }}.zip" .)
           if [ -d artifacts/my_game-web ]; then
             (cd artifacts/my_game-web && zip -r "../../release/my_game-web-${{ github.ref_name }}.zip" .)
           fi
 
       - name: Create versioned release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@3d0d9888cb7fd7b750713d6e236d1fcb99157228 # v3.0.2
         with:
           tag_name: ${{ github.ref_name }}
           name: ${{ github.ref_name }}
