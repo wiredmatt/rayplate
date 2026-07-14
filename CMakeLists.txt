@@ -1,8 +1,13 @@
 cmake_minimum_required(VERSION 3.25)
 project(my_game)
+include(CTest)
 set(CMAKE_C_STANDARD 99)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
+
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
+include(RayplateAngle)
+rayplate_prepare_angle()
 
 set(RL_ALIAS_MODE "INLINE" CACHE STRING "Alias implementation: INLINE, DEFINE, or empty to disable")
 set_property(CACHE RL_ALIAS_MODE PROPERTY STRINGS "INLINE" "DEFINE" "")
@@ -20,6 +25,8 @@ FetchContent_Declare(
     DOWNLOAD_EXTRACT_TIMESTAMP OFF
 )
 FetchContent_MakeAvailable(raylib)
+
+rayplate_configure_angle_raylib(raylib)
 
 # Generate optional prefixed aliases for the raylib and rlgl APIs.
 set(RAYLIB_HEADER_PATH "${raylib_SOURCE_DIR}/src/raylib.h")

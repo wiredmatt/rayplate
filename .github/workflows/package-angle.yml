@@ -1,0 +1,129 @@
+name: Package ANGLE from Electron
+
+on:
+  workflow_dispatch:
+    inputs:
+      electron_version:
+        description: Electron version to extract ANGLE from (without a leading v)
+        required: true
+        default: '43.1.1'
+
+concurrency:
+  group: package-angle-${{ inputs.electron_version }}
+  cancel-in-progress: false
+
+jobs:
+  package:
+    name: Package ${{ matrix.target }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: true
+      matrix:
+        target:
+          - windows-x64
+          - windows-arm64
+          - linux-x64
+          - linux-arm64
+          - macos-x64
+          - macos-arm64
+
+    steps:
+      - name: Checkout packaging source
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - name: Set up Python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
+        with:
+          python-version: '3.13'
+
+      - name: Test the packager
+        run: python -m unittest discover -s tests -v
+
+      - name: Download Electron, verify it, and package ANGLE
+        env:
+          ELECTRON_VERSION: ${{ inputs.electron_version }}
+          ANGLE_TARGET: ${{ matrix.target }}
+        run: |
+          python scripts/package_angle.py \
+            --electron-version "$ELECTRON_VERSION" \
+            --target "$ANGLE_TARGET" \
+            --output-dir dist
+
+      - name: Upload bundle for release job
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: angle-${{ matrix.target }}
+          path: dist/*.tar.gz
+          if-no-files-found: error
+          retention-days: 7
+
+  release:
+    name: Attest and publish ANGLE bundles
+    needs: package
+    runs-on: ubuntu-latest
+    permissions:
+      artifact-metadata: write
+      attestations: write
+      contents: write
+      id-token: write
+
+    steps:
+      - name: Download packaged bundles
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: angle-*
+          path: release
+          merge-multiple: true
+
+      - name: Create checksum manifest
+        working-directory: release
+        run: sha256sum *.tar.gz | LC_ALL=C sort -k2 > SHA256SUMS
+
+      - name: Generate signed build provenance
+        id: attest
+        uses: actions/attest@a1948c3f048ba23858d222213b7c278aabede763 # v4.1.1
+        with:
+          subject-checksums: release/SHA256SUMS
+
+      - name: Include the offline Sigstore bundle
+        env:
+          ATTESTATION_BUNDLE: ${{ steps.attest.outputs.bundle-path }}
+        run: cp "$ATTESTATION_BUNDLE" release/attestation.sigstore.json
+
+      - name: Publish immutable-version release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ELECTRON_VERSION: ${{ inputs.electron_version }}
+        run: |
+          if [[ ! "$ELECTRON_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+([+-][0-9A-Za-z.-]+)?$ ]]; then
+            echo "Invalid Electron version: $ELECTRON_VERSION" >&2
+            exit 1
+          fi
+
+          tag="angle-electron-v${ELECTRON_VERSION}"
+          if gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Release $tag already exists; refusing to replace immutable artifacts." >&2
+            exit 1
+          fi
+
+          gh release create "$tag" release/* \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" \
+            --title "ANGLE runtime from Electron v${ELECTRON_VERSION}" \
+            --latest=false \
+            --notes "$(cat <<EOF
+          Reproducible ANGLE runtime bundles extracted byte-for-byte from the official Electron v${ELECTRON_VERSION} archives.
+
+          Each source archive was checked against Electron's SHASUMS256.txt. SHA256SUMS covers every downloadable bundle, and GitHub/Sigstore provenance binds those hashes to this workflow run.
+
+          Verify a downloaded bundle:
+
+              sha256sum --check SHA256SUMS --ignore-missing
+              gh attestation verify <bundle.tar.gz> --repo ${GITHUB_REPOSITORY}
+
+          Source: https://github.com/electron/electron/releases/tag/v${ELECTRON_VERSION}
+          Workflow commit: ${GITHUB_SHA}
+          EOF
+          )"
