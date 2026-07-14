@@ -153,6 +153,8 @@ jobs:
       - name: Prepare release files
         run: |
           mkdir -p release
+          chmod +x artifacts/my_game-ubuntu-latest/my_game
+          chmod +x artifacts/my_game-macos-latest/my_game
           tar -C artifacts/my_game-ubuntu-latest -czf release/my_game-linux.tar.gz .
           tar -C artifacts/my_game-macos-latest -czf release/my_game-macos.tar.gz .
           (cd artifacts/my_game-windows-latest && zip -r ../../release/my_game-windows.zip .)
