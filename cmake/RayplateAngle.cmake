@@ -9,6 +9,8 @@ set(RAYPLATE_ANGLE_ARCHIVE "" CACHE FILEPATH
     "Local rayplate ANGLE .tar.gz bundle used by the LOCAL provider")
 set(RAYPLATE_ANGLE_LOCAL_SHA256 "" CACHE STRING
     "Optional SHA-256 for RAYPLATE_ANGLE_ARCHIVE")
+set(RAYPLATE_MACOS_ADHOC_SIGN ON CACHE BOOL
+    "Ad-hoc sign the macOS app bundle and its ANGLE libraries")
 
 function(_rayplate_angle_target_name output)
     if(WIN32)
@@ -399,6 +401,13 @@ function(rayplate_configure_angle_raylib raylib_target)
     endif()
     get_filename_component(egl_name "${RAYPLATE_ANGLE_EGL}" NAME)
     get_filename_component(gles_name "${RAYPLATE_ANGLE_GLES}" NAME)
+    if(APPLE)
+        set(egl_runtime_name "@executable_path/../Frameworks/${egl_name}")
+        set(gles_runtime_name "@executable_path/../Frameworks/${gles_name}")
+    else()
+        set(egl_runtime_name "${egl_name}")
+        set(gles_runtime_name "${gles_name}")
+    endif()
     set(khronos_include "${CMAKE_CURRENT_FUNCTION_LIST_DIR}/../third_party/khronos")
     if(NOT EXISTS "${khronos_include}/GLES3/gl3.h")
         message(FATAL_ERROR "Bundled Khronos OpenGL ES headers are missing")
@@ -406,14 +415,14 @@ function(rayplate_configure_angle_raylib raylib_target)
     target_include_directories(${raylib_target} PUBLIC
         "$<BUILD_INTERFACE:${khronos_include}>")
     target_compile_definitions(${raylib_target} PRIVATE
-        "_GLFW_EGL_LIBRARY=\"${egl_name}\""
-        "_GLFW_GLESV2_LIBRARY=\"${gles_name}\""
+        "_GLFW_EGL_LIBRARY=\"${egl_runtime_name}\""
+        "_GLFW_GLESV2_LIBRARY=\"${gles_runtime_name}\""
     )
     if(TARGET glfw)
         _rayplate_patch_glfw_angle_x11(glfw)
         target_compile_definitions(glfw PRIVATE
-            "_GLFW_EGL_LIBRARY=\"${egl_name}\""
-            "_GLFW_GLESV2_LIBRARY=\"${gles_name}\""
+            "_GLFW_EGL_LIBRARY=\"${egl_runtime_name}\""
+            "_GLFW_GLESV2_LIBRARY=\"${gles_runtime_name}\""
         )
     else()
         message(FATAL_ERROR "ANGLE requires raylib's bundled GLFW target")
@@ -439,10 +448,22 @@ function(rayplate_configure_angle_application application_target)
     if(RAYPLATE_ANGLE_VULKAN_LOADER)
         list(APPEND runtime_files "${RAYPLATE_ANGLE_VULKAN_LOADER}")
     endif()
+    if(APPLE)
+        set(bundle_directory "$<TARGET_BUNDLE_DIR:${application_target}>")
+        set(runtime_destination "${bundle_directory}/Contents/Frameworks")
+        set(license_destination "${bundle_directory}/Contents/Resources/angle-licenses")
+        add_custom_command(TARGET ${application_target} POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E make_directory "${runtime_destination}"
+            VERBATIM)
+    else()
+        set(runtime_destination "$<TARGET_FILE_DIR:${application_target}>")
+        set(license_destination
+            "$<TARGET_FILE_DIR:${application_target}>/angle-licenses")
+    endif()
     foreach(runtime_file IN LISTS runtime_files)
         add_custom_command(TARGET ${application_target} POST_BUILD
             COMMAND ${CMAKE_COMMAND} -E copy_if_different
-                "${runtime_file}" "$<TARGET_FILE_DIR:${application_target}>"
+                "${runtime_file}" "${runtime_destination}"
             VERBATIM)
     endforeach()
 
@@ -458,26 +479,45 @@ function(rayplate_configure_angle_application application_target)
     if(license_files)
         add_custom_command(TARGET ${application_target} POST_BUILD
             COMMAND ${CMAKE_COMMAND} -E make_directory
-                "$<TARGET_FILE_DIR:${application_target}>/angle-licenses"
+                "${license_destination}"
             VERBATIM)
         foreach(license_file IN LISTS license_files)
             add_custom_command(TARGET ${application_target} POST_BUILD
                 COMMAND ${CMAKE_COMMAND} -E copy_if_different
                     "${license_file}"
-                    "$<TARGET_FILE_DIR:${application_target}>/angle-licenses"
+                    "${license_destination}"
                 VERBATIM)
         endforeach()
     endif()
 
     if(APPLE)
-        set_property(TARGET ${application_target} APPEND PROPERTY BUILD_RPATH "@loader_path")
-        set_property(TARGET ${application_target} APPEND PROPERTY INSTALL_RPATH "@loader_path")
+        set_property(TARGET ${application_target} APPEND PROPERTY
+            BUILD_RPATH "@executable_path/../Frameworks")
+        set_property(TARGET ${application_target} APPEND PROPERTY
+            INSTALL_RPATH "@executable_path/../Frameworks")
         get_filename_component(gles_name "${RAYPLATE_ANGLE_GLES}" NAME)
         add_custom_command(TARGET ${application_target} POST_BUILD
             COMMAND "${CMAKE_INSTALL_NAME_TOOL}"
-                -change "./${gles_name}" "@loader_path/${gles_name}"
+                -change "./${gles_name}"
+                "@executable_path/../Frameworks/${gles_name}"
                 "$<TARGET_FILE:${application_target}>"
             VERBATIM)
+
+        if(RAYPLATE_MACOS_ADHOC_SIGN)
+            find_program(rayplate_codesign codesign REQUIRED)
+            foreach(runtime_file IN LISTS runtime_files)
+                get_filename_component(runtime_name "${runtime_file}" NAME)
+                add_custom_command(TARGET ${application_target} POST_BUILD
+                    COMMAND "${rayplate_codesign}" --force --sign -
+                        "${runtime_destination}/${runtime_name}"
+                    VERBATIM)
+            endforeach()
+            add_custom_command(TARGET ${application_target} POST_BUILD
+                COMMAND "${rayplate_codesign}" --force --sign - "${bundle_directory}"
+                COMMAND "${rayplate_codesign}" --verify --deep --strict --verbose=2
+                    "${bundle_directory}"
+                VERBATIM)
+        endif()
     elseif(UNIX)
         set_property(TARGET ${application_target} APPEND PROPERTY BUILD_RPATH "$ORIGIN")
         set_property(TARGET ${application_target} APPEND PROPERTY INSTALL_RPATH "$ORIGIN")

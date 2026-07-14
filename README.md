@@ -85,7 +85,10 @@ cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build --parallel
 ```
 
-The ANGLE libraries, Electron's matching Linux Vulkan loader, and their license/provenance manifest are staged beside the executable automatically.
+The ANGLE libraries, Electron's matching Linux Vulkan loader, and their
+license/provenance manifest are staged automatically. Linux and Windows place
+them beside the executable; macOS places them in the standard locations inside
+`build/my_game.app`.
 
 Electron's Windows ARM64 ANGLE build does not contain the WGL/OpenGL renderer, so that one architecture intentionally omits `opengl`. The packaging script fails closed if an Electron update lacks any backend expected for its target.
 
@@ -102,13 +105,47 @@ my_game.exe --graphics-api=vulkan
 my_game.exe --graphics-api=opengl
 
 # macOS
-./my_game --graphics-api=metal
-./my_game --graphics-api=opengl
+./build/my_game.app/Contents/MacOS/my_game --graphics-api=metal
+./build/my_game.app/Contents/MacOS/my_game --graphics-api=opengl
+
+# Or launch the bundle through Finder-compatible tooling
+open build/my_game.app --args --graphics-api=metal
 ```
 
 `--graphics-api value` is also accepted. The startup log reports both the requested backend and ANGLE's actual `GL_RENDERER` string.
 
 For a Steam-native selection popup, create one Steamworks launch option per supported value and pass the corresponding argument. Steam owns that popup; the executable only needs the command-line interface above.
+
+## macOS application bundle and Gatekeeper
+
+macOS builds produce a conventional application bundle:
+
+```text
+my_game.app/
+└── Contents/
+    ├── Info.plist
+    ├── MacOS/my_game
+    ├── Frameworks/
+    │   ├── libEGL.dylib
+    │   └── libGLESv2.dylib
+    └── Resources/angle-licenses/
+```
+
+CMake ad-hoc signs the ANGLE libraries and then the complete application
+bundle. This seals the bundle and lets macOS treat it as one application, but
+it does not claim an Apple-verified developer identity and costs nothing.
+
+For an application downloaded from GitHub, the first launch may still be
+blocked by Gatekeeper. Control-click (or right-click) `my_game.app`, choose
+**Open**, then confirm **Open** once. macOS remembers that approval for the
+application; users should not need to approve its individual dynamic
+libraries. The release ZIP is created on macOS with `ditto` so executable
+permissions, bundle metadata, and code signatures survive download.
+
+Set `RAYPLATE_MACOS_ADHOC_SIGN=OFF` only when another packaging system will
+sign the finished bundle itself. The default bundle identity and version can
+be changed with `RAYPLATE_MACOS_BUNDLE_IDENTIFIER` and
+`RAYPLATE_MACOS_BUNDLE_VERSION`.
 
 ## Fully local or offline ANGLE
 
@@ -206,7 +243,14 @@ The integrity layers are:
 - CMake pins the complete bundle hash in source control.
 - GitHub's Sigstore-backed attestation identifies the exact workflow and repository that produced the bundle.
 
-A checksum alone cannot prove software is benign. The stronger malware/supply-chain property here is provenance: the workflow performs no compilation or binary rewriting and the manifest shows that shipped binaries were extracted byte-for-byte from the official Electron release.
+A checksum alone cannot prove software is benign. The stronger
+malware/supply-chain property here is provenance: the ANGLE packaging workflow
+performs no compilation or binary rewriting, and its manifest records files
+extracted byte-for-byte from the official Electron release. When producing a
+macOS application, CMake verifies that source bundle first and then ad-hoc
+signs its staged dylib copies; that necessarily changes their Mach-O signature
+metadata. The included manifest continues to identify and hash the verified
+pre-signing Electron inputs.
 
 ## Build for web
 
@@ -254,3 +298,5 @@ git push origin v1.2.3
 ```
 
 Tags containing `-alpha`, `-beta`, or `-rc` are marked as prereleases.
+macOS releases are ZIP archives containing the complete ad-hoc-signed
+`my_game.app` rather than loose executables and dynamic libraries.
