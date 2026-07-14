@@ -1,5 +1,19 @@
 cmake_minimum_required(VERSION 3.25)
-add_executable(${PROJECT_NAME})
+if(APPLE)
+    add_executable(${PROJECT_NAME} MACOSX_BUNDLE)
+    set(RAYPLATE_MACOS_BUNDLE_IDENTIFIER "io.github.wiredmatt.rayplate" CACHE STRING
+        "Bundle identifier used for the macOS application")
+    set(RAYPLATE_MACOS_BUNDLE_VERSION "1.0.0" CACHE STRING
+        "Version written to the macOS application bundle")
+    set_target_properties(${PROJECT_NAME} PROPERTIES
+        MACOSX_BUNDLE_BUNDLE_NAME "${PROJECT_NAME}"
+        MACOSX_BUNDLE_GUI_IDENTIFIER "${RAYPLATE_MACOS_BUNDLE_IDENTIFIER}"
+        MACOSX_BUNDLE_BUNDLE_VERSION "${RAYPLATE_MACOS_BUNDLE_VERSION}"
+        MACOSX_BUNDLE_SHORT_VERSION_STRING "${RAYPLATE_MACOS_BUNDLE_VERSION}"
+    )
+else()
+    add_executable(${PROJECT_NAME})
+endif()
 
 target_sources(${PROJECT_NAME} PRIVATE main.c)
 target_link_libraries(${PROJECT_NAME} PRIVATE raylib)

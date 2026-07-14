@@ -96,7 +96,29 @@ jobs:
       - name: Verify macOS resolves rlgl through ANGLE
         if: runner.os == 'macOS'
         run: |
-          otool -L build/my_game | grep '@loader_path/libGLESv2.dylib'
+          app=build/my_game.app
+          executable="$app/Contents/MacOS/my_game"
+          test -x "$executable"
+          test -f "$app/Contents/Frameworks/libEGL.dylib"
+          test -f "$app/Contents/Frameworks/libGLESv2.dylib"
+          test -f "$app/Contents/Resources/angle-licenses/manifest.json"
+          otool -L "$executable" | \
+            grep '@executable_path/../Frameworks/libGLESv2.dylib'
+          codesign --verify --deep --strict --verbose=2 "$app"
+          codesign --display --verbose=4 "$app" 2>&1 | grep 'Signature=adhoc'
+          "$executable" --help
+
+      - name: Package macOS application bundle
+        if: runner.os == 'macOS'
+        run: |
+          ditto -c -k --sequesterRsrc --keepParent \
+            build/my_game.app build/my_game-macos.zip
+          rm -rf build/package-check
+          mkdir -p build/package-check
+          ditto -x -k build/my_game-macos.zip build/package-check
+          test -x build/package-check/my_game.app/Contents/MacOS/my_game
+          codesign --verify --deep --strict --verbose=2 \
+            build/package-check/my_game.app
 
       - name: Upload artifacts
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -114,6 +136,7 @@ jobs:
             build/Release/libGLESv2.*
             build/Release/libvulkan.so.*
             build/Release/d3dcompiler_47.dll
+            build/my_game-macos.zip
             build/angle-licenses/**
             build/Release/angle-licenses/**
           if-no-files-found: ignore
@@ -181,9 +204,8 @@ jobs:
         run: |
           mkdir -p release
           chmod +x artifacts/my_game-ubuntu-latest/my_game
-          chmod +x artifacts/my_game-macos-latest/my_game
           tar -C artifacts/my_game-ubuntu-latest -czf release/my_game-linux.tar.gz .
-          tar -C artifacts/my_game-macos-latest -czf release/my_game-macos.tar.gz .
+          cp artifacts/my_game-macos-latest/my_game-macos.zip release/my_game-macos.zip
           (cd artifacts/my_game-windows-latest && zip -r ../../release/my_game-windows.zip .)
           if [ -d artifacts/my_game-web ]; then
             (cd artifacts/my_game-web && zip -r ../../release/my_game-web.zip .)
@@ -220,8 +242,10 @@ jobs:
       - name: Prepare release files
         run: |
           mkdir -p release
+          chmod +x artifacts/my_game-ubuntu-latest/my_game
           tar -C artifacts/my_game-ubuntu-latest -czf "release/my_game-linux-${{ github.ref_name }}.tar.gz" .
-          tar -C artifacts/my_game-macos-latest -czf "release/my_game-macos-${{ github.ref_name }}.tar.gz" .
+          cp artifacts/my_game-macos-latest/my_game-macos.zip \
+            "release/my_game-macos-${{ github.ref_name }}.zip"
           (cd artifacts/my_game-windows-latest && zip -r "../../release/my_game-windows-${{ github.ref_name }}.zip" .)
           if [ -d artifacts/my_game-web ]; then
             (cd artifacts/my_game-web && zip -r "../../release/my_game-web-${{ github.ref_name }}.zip" .)
