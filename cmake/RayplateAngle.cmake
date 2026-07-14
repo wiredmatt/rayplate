@@ -170,6 +170,62 @@ function(_rayplate_define_angle_gles_target gles_path target_name)
     set_target_properties(rayplate_angle_gles PROPERTIES IMPORTED_LOCATION "${link_input}")
 endfunction()
 
+function(_rayplate_patch_glfw_angle_x11 glfw_target)
+    if(NOT CMAKE_SYSTEM_NAME STREQUAL "Linux")
+        return()
+    endif()
+
+    # EGL_EXT_platform_x11 takes a pointer to the X11 Window ID, while
+    # EGL_PLATFORM_ANGLE_ANGLE takes the Window ID itself even when its native
+    # platform attribute is X11.  GLFW 3.4 treats every nonzero EGL platform
+    # as EGL_EXT_platform_x11, which makes ANGLE reject the native window and
+    # can subsequently crash while unwinding window creation.
+    get_target_property(glfw_source_directory ${glfw_target} SOURCE_DIR)
+    set(original_source "${glfw_source_directory}/x11_window.c")
+    if(NOT EXISTS "${original_source}")
+        message(FATAL_ERROR "Could not find GLFW's X11 source: ${original_source}")
+    endif()
+
+    file(READ "${original_source}" source_contents)
+    set(unpatched_condition "if (_glfw.egl.platform)\n        return &window->x11.handle;")
+    set(patched_condition "if (_glfw.egl.platform == EGL_PLATFORM_X11_EXT)\n        return &window->x11.handle;")
+    string(FIND "${source_contents}" "${unpatched_condition}" condition_offset)
+    if(condition_offset EQUAL -1)
+        message(FATAL_ERROR
+            "GLFW's X11 EGL window handling changed; review the ANGLE compatibility patch")
+    endif()
+    string(REPLACE "${unpatched_condition}" "${patched_condition}"
+        patched_contents "${source_contents}")
+
+    set(patched_directory "${CMAKE_BINARY_DIR}/_angle/glfw")
+    set(patched_source "${patched_directory}/x11_window.c")
+    file(MAKE_DIRECTORY "${patched_directory}")
+    file(WRITE "${patched_source}" "${patched_contents}")
+
+    get_target_property(glfw_sources ${glfw_target} SOURCES)
+    set(updated_sources "")
+    set(replacement_count 0)
+    foreach(source IN LISTS glfw_sources)
+        if(IS_ABSOLUTE "${source}")
+            set(absolute_source "${source}")
+        else()
+            get_filename_component(absolute_source "${source}" ABSOLUTE
+                BASE_DIR "${glfw_source_directory}")
+        endif()
+        if(absolute_source STREQUAL original_source)
+            list(APPEND updated_sources "${patched_source}")
+            math(EXPR replacement_count "${replacement_count} + 1")
+        else()
+            list(APPEND updated_sources "${source}")
+        endif()
+    endforeach()
+    if(NOT replacement_count EQUAL 1)
+        message(FATAL_ERROR
+            "Expected one GLFW x11_window.c source, found ${replacement_count}")
+    endif()
+    set_property(TARGET ${glfw_target} PROPERTY SOURCES "${updated_sources}")
+endfunction()
+
 function(rayplate_prepare_angle)
     string(TOUPPER "${RAYPLATE_ANGLE_PROVIDER}" provider)
     if(EMSCRIPTEN OR PLATFORM STREQUAL "Web")
@@ -192,7 +248,7 @@ function(rayplate_prepare_angle)
         set(default_bundle_name
             "rayplate-angle-electron-${RAYPLATE_ANGLE_ELECTRON_VERSION}-${target_name}.tar.gz")
         set(default_release_base
-            "https://github.com/${RAYPLATE_ANGLE_RELEASE_REPOSITORY}/releases/download/angle-electron-v${RAYPLATE_ANGLE_ELECTRON_VERSION}")
+            "https://github.com/${RAYPLATE_ANGLE_RELEASE_REPOSITORY}/releases/download/${RAYPLATE_ANGLE_RELEASE_TAG}")
         set(hash_variable "RAYPLATE_ANGLE_BUNDLE_SHA256_${target_key}")
         set(default_hash "${${hash_variable}}")
 
@@ -287,6 +343,7 @@ function(rayplate_prepare_angle)
     _rayplate_find_unique_file(egl_path "${runtime_root}" "${egl_name}" TRUE)
     _rayplate_find_unique_file(gles_path "${runtime_root}" "${gles_name}" TRUE)
     _rayplate_find_unique_file(d3dcompiler_path "${runtime_root}" "d3dcompiler_47.dll" FALSE)
+    _rayplate_find_unique_file(vulkan_loader_path "${runtime_root}" "libvulkan.so.1" FALSE)
     _rayplate_find_unique_file(electron_license "${runtime_root}" "ELECTRON-LICENSE" FALSE)
     _rayplate_find_unique_file(chromium_license "${runtime_root}" "LICENSES.chromium.html" FALSE)
     _rayplate_find_unique_file(angle_manifest "${runtime_root}" "manifest.json" FALSE)
@@ -305,6 +362,7 @@ function(rayplate_prepare_angle)
     set(RAYPLATE_ANGLE_EGL "${egl_path}" PARENT_SCOPE)
     set(RAYPLATE_ANGLE_GLES "${gles_path}" PARENT_SCOPE)
     set(RAYPLATE_ANGLE_D3DCOMPILER "${d3dcompiler_path}" PARENT_SCOPE)
+    set(RAYPLATE_ANGLE_VULKAN_LOADER "${vulkan_loader_path}" PARENT_SCOPE)
     set(RAYPLATE_ANGLE_ELECTRON_LICENSE "${electron_license}" PARENT_SCOPE)
     set(RAYPLATE_ANGLE_CHROMIUM_LICENSE "${chromium_license}" PARENT_SCOPE)
     set(RAYPLATE_ANGLE_MANIFEST "${angle_manifest}" PARENT_SCOPE)
@@ -327,6 +385,7 @@ function(rayplate_configure_angle_raylib raylib_target)
         "_GLFW_GLESV2_LIBRARY=\"${gles_name}\""
     )
     if(TARGET glfw)
+        _rayplate_patch_glfw_angle_x11(glfw)
         target_compile_definitions(glfw PRIVATE
             "_GLFW_EGL_LIBRARY=\"${egl_name}\""
             "_GLFW_GLESV2_LIBRARY=\"${gles_name}\""
@@ -351,6 +410,9 @@ function(rayplate_configure_angle_application application_target)
     set(runtime_files "${RAYPLATE_ANGLE_EGL}" "${RAYPLATE_ANGLE_GLES}")
     if(RAYPLATE_ANGLE_D3DCOMPILER)
         list(APPEND runtime_files "${RAYPLATE_ANGLE_D3DCOMPILER}")
+    endif()
+    if(RAYPLATE_ANGLE_VULKAN_LOADER)
+        list(APPEND runtime_files "${RAYPLATE_ANGLE_VULKAN_LOADER}")
     endif()
     foreach(runtime_file IN LISTS runtime_files)
         add_custom_command(TARGET ${application_target} POST_BUILD

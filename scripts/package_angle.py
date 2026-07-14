@@ -30,6 +30,7 @@ class Target:
     gles_name: str
     backends: tuple[str, ...]
     backend_markers: tuple[bytes, ...]
+    required_runtime_names: tuple[str, ...] = ()
     optional_runtime_names: tuple[str, ...] = ()
 
 
@@ -38,22 +39,24 @@ TARGETS = {
         "win32", "x64", "libEGL.dll", "libGLESv2.dll",
         ("directx", "vulkan", "opengl"),
         (b"renderer\\d3d\\", b"renderer\\vulkan\\", b"renderer\\gl\\"),
-        ("d3dcompiler_47.dll",),
+        optional_runtime_names=("d3dcompiler_47.dll",),
     ),
     # Electron's Windows ARM64 build does not compile ANGLE's WGL renderer.
     "windows-arm64": Target(
         "win32", "arm64", "libEGL.dll", "libGLESv2.dll",
         ("directx", "vulkan"),
         (b"renderer\\d3d\\", b"renderer\\vulkan\\"),
-        ("d3dcompiler_47.dll",),
+        optional_runtime_names=("d3dcompiler_47.dll",),
     ),
     "linux-x64": Target(
         "linux", "x64", "libEGL.so", "libGLESv2.so",
         ("vulkan", "opengl"), (b"renderer/vulkan/", b"renderer/gl/"),
+        required_runtime_names=("libvulkan.so.1",),
     ),
     "linux-arm64": Target(
         "linux", "arm64", "libEGL.so", "libGLESv2.so",
         ("vulkan", "opengl"), (b"renderer/vulkan/", b"renderer/gl/"),
+        required_runtime_names=("libvulkan.so.1",),
     ),
     "macos-x64": Target(
         "darwin", "x64", "libEGL.dylib", "libGLESv2.dylib",
@@ -209,6 +212,13 @@ def package_angle(
             for basename, destination in required_files:
                 member = find_unique_member(electron_archive, basename, required=True)
                 assert member is not None
+                extract_member(electron_archive, member, destination)
+                extracted.append((member.filename, destination))
+
+            for basename in target.required_runtime_names:
+                member = find_unique_member(electron_archive, basename, required=True)
+                assert member is not None
+                destination = bin_dir / basename
                 extract_member(electron_archive, member, destination)
                 extracted.append((member.filename, destination))
 
