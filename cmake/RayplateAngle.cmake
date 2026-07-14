@@ -181,30 +181,51 @@ function(_rayplate_patch_glfw_angle_x11 glfw_target)
     # as EGL_EXT_platform_x11, which makes ANGLE reject the native window and
     # can subsequently crash while unwinding window creation.
     get_target_property(glfw_source_directory ${glfw_target} SOURCE_DIR)
-    set(original_source "${glfw_source_directory}/x11_window.c")
-    if(NOT EXISTS "${original_source}")
-        message(FATAL_ERROR "Could not find GLFW's X11 source: ${original_source}")
+    set(original_window_source "${glfw_source_directory}/x11_window.c")
+    set(original_init_source "${glfw_source_directory}/x11_init.c")
+    if(NOT EXISTS "${original_window_source}" OR NOT EXISTS "${original_init_source}")
+        message(FATAL_ERROR "Could not find GLFW's X11 sources in ${glfw_source_directory}")
     endif()
 
-    file(READ "${original_source}" source_contents)
+    file(READ "${original_window_source}" window_contents)
     set(unpatched_condition "if (_glfw.egl.platform)\n        return &window->x11.handle;")
     set(patched_condition "if (_glfw.egl.platform == EGL_PLATFORM_X11_EXT)\n        return &window->x11.handle;")
-    string(FIND "${source_contents}" "${unpatched_condition}" condition_offset)
+    string(FIND "${window_contents}" "${unpatched_condition}" condition_offset)
     if(condition_offset EQUAL -1)
         message(FATAL_ERROR
             "GLFW's X11 EGL window handling changed; review the ANGLE compatibility patch")
     endif()
     string(REPLACE "${unpatched_condition}" "${patched_condition}"
-        patched_contents "${source_contents}")
+        patched_window_contents "${window_contents}")
+
+    # GLFW deliberately unloads EGL after XCloseDisplay so Xlib cleanup
+    # callbacks remain valid.  ANGLE's OpenGL renderer, however, must destroy
+    # its GLX objects before that display is closed.  Terminate the EGL display
+    # early but leave the EGL module loaded for GLFW's existing late cleanup.
+    file(READ "${original_init_source}" init_contents)
+    set(unpatched_shutdown
+        "    if (_glfw.x11.display)\n    {\n        XCloseDisplay(_glfw.x11.display);")
+    set(patched_shutdown
+        "    if (_glfw.egl.display)\n    {\n        eglTerminate(_glfw.egl.display);\n        _glfw.egl.display = EGL_NO_DISPLAY;\n    }\n\n    if (_glfw.x11.display)\n    {\n        XCloseDisplay(_glfw.x11.display);")
+    string(FIND "${init_contents}" "${unpatched_shutdown}" shutdown_offset)
+    if(shutdown_offset EQUAL -1)
+        message(FATAL_ERROR
+            "GLFW's X11 termination changed; review the ANGLE compatibility patch")
+    endif()
+    string(REPLACE "${unpatched_shutdown}" "${patched_shutdown}"
+        patched_init_contents "${init_contents}")
 
     set(patched_directory "${CMAKE_BINARY_DIR}/_angle/glfw")
-    set(patched_source "${patched_directory}/x11_window.c")
+    set(patched_window_source "${patched_directory}/x11_window.c")
+    set(patched_init_source "${patched_directory}/x11_init.c")
     file(MAKE_DIRECTORY "${patched_directory}")
-    file(WRITE "${patched_source}" "${patched_contents}")
+    file(WRITE "${patched_window_source}" "${patched_window_contents}")
+    file(WRITE "${patched_init_source}" "${patched_init_contents}")
 
     get_target_property(glfw_sources ${glfw_target} SOURCES)
     set(updated_sources "")
-    set(replacement_count 0)
+    set(window_replacement_count 0)
+    set(init_replacement_count 0)
     foreach(source IN LISTS glfw_sources)
         if(IS_ABSOLUTE "${source}")
             set(absolute_source "${source}")
@@ -212,16 +233,20 @@ function(_rayplate_patch_glfw_angle_x11 glfw_target)
             get_filename_component(absolute_source "${source}" ABSOLUTE
                 BASE_DIR "${glfw_source_directory}")
         endif()
-        if(absolute_source STREQUAL original_source)
-            list(APPEND updated_sources "${patched_source}")
-            math(EXPR replacement_count "${replacement_count} + 1")
+        if(absolute_source STREQUAL original_window_source)
+            list(APPEND updated_sources "${patched_window_source}")
+            math(EXPR window_replacement_count "${window_replacement_count} + 1")
+        elseif(absolute_source STREQUAL original_init_source)
+            list(APPEND updated_sources "${patched_init_source}")
+            math(EXPR init_replacement_count "${init_replacement_count} + 1")
         else()
             list(APPEND updated_sources "${source}")
         endif()
     endforeach()
-    if(NOT replacement_count EQUAL 1)
+    if(NOT window_replacement_count EQUAL 1 OR NOT init_replacement_count EQUAL 1)
         message(FATAL_ERROR
-            "Expected one GLFW x11_window.c source, found ${replacement_count}")
+            "Expected one each of GLFW x11_window.c and x11_init.c, found "
+            "${window_replacement_count} and ${init_replacement_count}")
     endif()
     set_property(TARGET ${glfw_target} PROPERTY SOURCES "${updated_sources}")
 endfunction()

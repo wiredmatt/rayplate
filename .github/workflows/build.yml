@@ -19,7 +19,7 @@ jobs:
         os: [ubuntu-latest, macos-latest, windows-latest]
         include:
           - os: ubuntu-latest
-            install_deps: sudo apt-get update && sudo apt-get install -y build-essential cmake git libgl1-mesa-dev libwayland-bin libwayland-dev libx11-dev libxcursor-dev libxext-dev libxi-dev libxinerama-dev libxrandr-dev libxkbcommon-dev mesa-vulkan-drivers pkg-config xauth xvfb
+            install_deps: sudo apt-get update && sudo apt-get install -y build-essential cmake git libgl1-mesa-dev libwayland-bin libwayland-dev libx11-dev libxcursor-dev libxext-dev libxi-dev libxinerama-dev libxrandr-dev libxkbcommon-dev mesa-vulkan-drivers pkg-config xauth xdotool xvfb
             cmake_args: -DRAYPLATE_ANGLE_PROVIDER=DOWNLOAD
           - os: macos-latest
             install_deps: ''
@@ -54,16 +54,43 @@ jobs:
         run: |
           for api in opengl vulkan; do
             set +e
-            timeout 15s xvfb-run -a stdbuf -oL -eL \
-              build/my_game --graphics-api="$api" >"$api.log" 2>&1
+            timeout 20s xvfb-run -a bash -euo pipefail -c '
+              api="$1"
+              stdbuf -oL -eL build/my_game --graphics-api="$api" >"$api.log" 2>&1 &
+              app_pid=$!
+              window_id=""
+
+              for attempt in {1..100}; do
+                mapfile -t window_ids < <(xdotool search --name "basic window" 2>/dev/null)
+                if (( ${#window_ids[@]} > 0 )); then
+                  window_id="${window_ids[0]}"
+                  break
+                fi
+                if ! kill -0 "$app_pid" 2>/dev/null; then
+                  wait "$app_pid"
+                  exit 3
+                fi
+                sleep 0.1
+              done
+
+              if [[ -z "$window_id" ]]; then
+                kill "$app_pid" 2>/dev/null || true
+                wait "$app_pid" 2>/dev/null || true
+                exit 2
+              fi
+
+              xdotool key --window "$window_id" Escape
+              wait "$app_pid"
+            ' _ "$api"
             status=$?
             set -e
             cat "$api.log"
-            if [[ "$status" -ne 124 ]]; then
+            if [[ "$status" -ne 0 ]]; then
               exit 1
             fi
             grep 'DISPLAY: Device initialized successfully' "$api.log"
             grep "ANGLE: Requested backend:" "$api.log"
+            grep 'Window closed successfully' "$api.log"
           done
 
       - name: Verify macOS resolves rlgl through ANGLE
