@@ -28,21 +28,19 @@ static const GraphicsApiChoice choices[] = {
     { "opengl", "OpenGL", "gl", GLFW_ANGLE_PLATFORM_TYPE_OPENGL },
 #endif
 };
-static const int defaultChoice = 0;
 #elif defined(__APPLE__)
 static const GraphicsApiChoice choices[] = {
     { "metal", "Metal", "metal", GLFW_ANGLE_PLATFORM_TYPE_METAL },
     { "opengl", "OpenGL", "gl", GLFW_ANGLE_PLATFORM_TYPE_OPENGL }
 };
-static const int defaultChoice = 0;
 #else
 static const GraphicsApiChoice choices[] = {
     { "vulkan", "Vulkan", "vulkan", GLFW_ANGLE_PLATFORM_TYPE_VULKAN },
     { "opengl", "OpenGL", "gl", GLFW_ANGLE_PLATFORM_TYPE_OPENGL }
 };
-static const int defaultChoice = 0;
 #endif
 
+enum { defaultChoice = 0 };
 static const GraphicsApiChoice *selectedChoice = &choices[defaultChoice];
 
 static int StringEquals(const char *left, const char *right)

@@ -41,6 +41,8 @@ int main(int argc, char **argv)
 
 Rayplate builds raylib and rlgl for OpenGL ES 3 and uses raylib's bundled GLFW EGL context path. At startup, `--graphics-api` selects an ANGLE renderer before `InitWindow()` creates the context.
 
+The repository vendors only [Khronos's platform-independent GLES declarations](third_party/khronos/README.md). At link time, rlgl's GLES calls resolve directly to the selected Electron `libGLESv2`; GLFW loads Electron's `libEGL` to create the ANGLE context. Host OpenGL remains available only for GLFW's alternate native context implementation.
+
 ```text
 raylib / rlgl (OpenGL ES 3)
             |
