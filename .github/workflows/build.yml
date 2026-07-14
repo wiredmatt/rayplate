@@ -79,7 +79,7 @@ jobs:
                 exit 2
               fi
 
-              xdotool key --window "$window_id" Escape
+              xdotool keydown --window "$window_id" Escape
               wait "$app_pid"
             ' _ "$api"
             status=$?
