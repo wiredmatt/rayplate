@@ -96,6 +96,80 @@ function(_rayplate_extract_angle_archive archive archive_hash destination)
     endif()
 endfunction()
 
+function(_rayplate_create_windows_import_library output dll target_name)
+    if(NOT MSVC)
+        # GNU-family Windows linkers support linking a DLL directly.
+        set(${output} "${dll}" PARENT_SCOPE)
+        return()
+    endif()
+
+    if(target_name MATCHES "-arm64$")
+        set(machine ARM64)
+    else()
+        set(machine X64)
+    endif()
+
+    set(import_dir "${CMAKE_BINARY_DIR}/_angle/import")
+    set(definition "${import_dir}/libGLESv2.def")
+    set(import_library "${import_dir}/libGLESv2.lib")
+    file(MAKE_DIRECTORY "${import_dir}")
+
+    # Electron ships DLLs but not MSVC import libraries. LINK /DUMP and LIB are
+    # part of the selected Visual Studio toolchain, so no extra SDK is needed.
+    execute_process(
+        COMMAND "${CMAKE_LINKER}" /dump /exports "${dll}"
+        RESULT_VARIABLE dump_result
+        OUTPUT_VARIABLE dump_output
+        ERROR_VARIABLE dump_error
+    )
+    if(NOT dump_result EQUAL 0)
+        message(FATAL_ERROR "Could not inspect ANGLE exports: ${dump_error}")
+    endif()
+    string(REPLACE "\r" "" dump_output "${dump_output}")
+    string(REGEX MATCHALL
+        "\n[ \t]+[0-9]+[ \t]+[0-9A-Fa-f]+[ \t]+[0-9A-Fa-f]+[ \t]+[A-Za-z_][A-Za-z0-9_@?]*"
+        export_lines "${dump_output}")
+    list(LENGTH export_lines export_count)
+    if(export_count LESS 100)
+        message(FATAL_ERROR
+            "Could not parse enough exports from ANGLE's libGLESv2.dll (found ${export_count})")
+    endif()
+
+    set(definition_contents "LIBRARY libGLESv2\nEXPORTS\n")
+    foreach(export_line IN LISTS export_lines)
+        string(REGEX REPLACE ".*[ \t]([^ \t\n]+)$" "\\1" export_name "${export_line}")
+        string(APPEND definition_contents "    ${export_name}\n")
+    endforeach()
+    file(WRITE "${definition}" "${definition_contents}")
+
+    execute_process(
+        COMMAND "${CMAKE_AR}" /nologo "/def:${definition}" "/machine:${machine}"
+            "/out:${import_library}"
+        RESULT_VARIABLE library_result
+        OUTPUT_VARIABLE library_output
+        ERROR_VARIABLE library_error
+    )
+    if(NOT library_result EQUAL 0 OR NOT EXISTS "${import_library}")
+        message(FATAL_ERROR
+            "Could not create ANGLE import library: ${library_output}${library_error}")
+    endif()
+    set(${output} "${import_library}" PARENT_SCOPE)
+endfunction()
+
+function(_rayplate_define_angle_gles_target gles_path target_name)
+    if(TARGET rayplate_angle_gles)
+        return()
+    endif()
+
+    set(link_input "${gles_path}")
+    if(WIN32)
+        _rayplate_create_windows_import_library(link_input "${gles_path}" "${target_name}")
+    endif()
+
+    add_library(rayplate_angle_gles UNKNOWN IMPORTED GLOBAL)
+    set_target_properties(rayplate_angle_gles PROPERTIES IMPORTED_LOCATION "${link_input}")
+endfunction()
+
 function(rayplate_prepare_angle)
     string(TOUPPER "${RAYPLATE_ANGLE_PROVIDER}" provider)
     if(EMSCRIPTEN OR PLATFORM STREQUAL "Web")
@@ -217,6 +291,8 @@ function(rayplate_prepare_angle)
     _rayplate_find_unique_file(chromium_license "${runtime_root}" "LICENSES.chromium.html" FALSE)
     _rayplate_find_unique_file(angle_manifest "${runtime_root}" "manifest.json" FALSE)
 
+    _rayplate_define_angle_gles_target("${gles_path}" "${target_name}")
+
     # raylib's desktop backend requests EGL for an OpenGL ES build. Force its
     # bundled GLFW so we can name the exact ANGLE libraries it must dlopen.
     set(PLATFORM "Desktop" CACHE STRING "raylib platform" FORCE)
@@ -240,6 +316,12 @@ function(rayplate_configure_angle_raylib raylib_target)
     endif()
     get_filename_component(egl_name "${RAYPLATE_ANGLE_EGL}" NAME)
     get_filename_component(gles_name "${RAYPLATE_ANGLE_GLES}" NAME)
+    set(khronos_include "${CMAKE_CURRENT_FUNCTION_LIST_DIR}/../third_party/khronos")
+    if(NOT EXISTS "${khronos_include}/GLES3/gl3.h")
+        message(FATAL_ERROR "Bundled Khronos OpenGL ES headers are missing")
+    endif()
+    target_include_directories(${raylib_target} PUBLIC
+        "$<BUILD_INTERFACE:${khronos_include}>")
     target_compile_definitions(${raylib_target} PRIVATE
         "_GLFW_EGL_LIBRARY=\"${egl_name}\""
         "_GLFW_GLESV2_LIBRARY=\"${gles_name}\""
@@ -262,6 +344,9 @@ function(rayplate_configure_angle_application application_target)
     target_compile_definitions(${application_target} PRIVATE RAYPLATE_ANGLE_ENABLED=1)
     target_include_directories(${application_target} PRIVATE
         "${raylib_SOURCE_DIR}/src/external/glfw/include")
+    # rlgl's ES3 implementation calls GLES symbols directly. Keep ANGLE after
+    # the raylib static archive and before raylib's host OpenGL dependencies.
+    target_link_libraries(${application_target} PRIVATE rayplate_angle_gles)
 
     set(runtime_files "${RAYPLATE_ANGLE_EGL}" "${RAYPLATE_ANGLE_GLES}")
     if(RAYPLATE_ANGLE_D3DCOMPILER)
@@ -300,6 +385,12 @@ function(rayplate_configure_angle_application application_target)
     if(APPLE)
         set_property(TARGET ${application_target} APPEND PROPERTY BUILD_RPATH "@loader_path")
         set_property(TARGET ${application_target} APPEND PROPERTY INSTALL_RPATH "@loader_path")
+        get_filename_component(gles_name "${RAYPLATE_ANGLE_GLES}" NAME)
+        add_custom_command(TARGET ${application_target} POST_BUILD
+            COMMAND "${CMAKE_INSTALL_NAME_TOOL}"
+                -change "./${gles_name}" "@loader_path/${gles_name}"
+                "$<TARGET_FILE:${application_target}>"
+            VERBATIM)
     elseif(UNIX)
         set_property(TARGET ${application_target} APPEND PROPERTY BUILD_RPATH "$ORIGIN")
         set_property(TARGET ${application_target} APPEND PROPERTY INSTALL_RPATH "$ORIGIN")

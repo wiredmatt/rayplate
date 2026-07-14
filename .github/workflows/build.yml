@@ -42,6 +42,16 @@ jobs:
       - name: Build
         run: cmake --build build --config Release
 
+      - name: Verify Linux resolves rlgl through ANGLE
+        if: runner.os == 'Linux'
+        run: |
+          readelf -d build/my_game | grep 'Shared library: \[libGLESv2.so\]'
+
+      - name: Verify macOS resolves rlgl through ANGLE
+        if: runner.os == 'macOS'
+        run: |
+          otool -L build/my_game | grep '@loader_path/libGLESv2.dylib'
+
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
