@@ -1,28 +1,3 @@
-/*******************************************************************************************
- *
- *   raylib [core] example - Basic window
- *
- *   Welcome to raylib!
- *
- *   To test examples, just press F6 and execute 'raylib_compile_execute' script
- *   Note that compiled executable is placed in the same folder as .c file
- *
- *   To test the examples on Web, press F6 and execute 'raylib_compile_execute_web' script
- *   Web version of the program is generated in the same folder as .c file
- *
- *   You can find all basic examples on C:\raylib\raylib\examples folder or
- *   raylib official webpage: www.raylib.com
- *
- *   Enjoy using raylib. :)
- *
- *   Example originally created with raylib 1.0, last time updated with raylib 1.0
- *
- *   Example licensed under an unmodified zlib/libpng license, which is an OSI-certified,
- *   BSD-like license that allows static linking with closed source software
- *
- *   Copyright (c) 2013-2024 Ramon Santamaria (@raysan5)
- *
- ********************************************************************************************/
 #include <rl_alias.h>
 
 #if defined(RAYPLATE_ANGLE_ENABLED)
@@ -35,9 +10,6 @@
 
 static void UpdateDrawFrame(void);
 
-//------------------------------------------------------------------------------------
-// Program main entry point
-//------------------------------------------------------------------------------------
 int main(int argc, char **argv)
 {
 #if defined(RAYPLATE_ANGLE_ENABLED)
@@ -49,8 +21,6 @@ int main(int argc, char **argv)
     (void)argv;
 #endif
 
-    // Initialization
-    //--------------------------------------------------------------------------------------
     const int screenWidth = 800;
     const int screenHeight = 450;
 
@@ -60,37 +30,21 @@ int main(int argc, char **argv)
     GraphicsApiLogRenderer();
 #endif
 
-    RLIB_SetTargetFPS(60); // Set our game to run at 60 frames-per-second
-    //--------------------------------------------------------------------------------------
+    RLIB_SetTargetFPS(60);
 
 #if defined(PLATFORM_WEB)
     emscripten_set_main_loop(UpdateDrawFrame, 60, 1);
 #else
-    // Main game loop
-    while (!RLIB_WindowShouldClose()) // Detect window close button or ESC key
-    {
-        UpdateDrawFrame();
-    }
+    while (!RLIB_WindowShouldClose()) UpdateDrawFrame();
 #endif
 
-    // De-Initialization
-    //--------------------------------------------------------------------------------------
-    RLIB_CloseWindow(); // Close window and OpenGL context
-    //--------------------------------------------------------------------------------------
-
+    RLIB_CloseWindow();
     return 0;
 }
 
 static void UpdateDrawFrame(void)
 {
-    // Update
-    //----------------------------------------------------------------------------------
-    //----------------------------------------------------------------------------------
-
-    // Draw
-    //----------------------------------------------------------------------------------
     // clang-format off
-
     RLIB_BeginDrawing();
 
         RLIB_ClearBackground(RAYWHITE);
@@ -98,7 +52,5 @@ static void UpdateDrawFrame(void)
         RLIB_DrawText("Congrats! You created your first window!", 190, 200, 20, LIGHTGRAY);
 
     RLIB_EndDrawing();
-
     // clang-format on
-    //----------------------------------------------------------------------------------
 }

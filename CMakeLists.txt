@@ -43,7 +43,7 @@ if(NOT RL_ALIAS_MODE STREQUAL "")
         message(FATAL_ERROR "${RL_ALIAS_MODE} mode is not supported.")
     endif()
 
-    set(ALIAS_SCRIPT_PATH "${CMAKE_CURRENT_SOURCE_DIR}/generate_rl_alias.cmake")
+    set(ALIAS_SCRIPT_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake/generate_rl_alias.cmake")
     file(MAKE_DIRECTORY "${RL_ALIAS_HEADER_DIR}")
 
     add_custom_command(
