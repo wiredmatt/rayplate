@@ -11,7 +11,7 @@
 static const Vector2 startingPositions[3] = {
     {400.0f, 150.0f}, {300.0f, 300.0f}, {500.0f, 300.0f}};
 static Vector2 trianglePositions[3] = {
-    startingPositions[0], startingPositions[1], startingPositions[2]};
+    {400.0f, 150.0f}, {300.0f, 300.0f}, {500.0f, 300.0f}};
 
 // Currently selected vertex, -1 means none
 int triangleIndex = -1;
@@ -37,11 +37,6 @@ int main(int argc, char **argv) {
 
   RLIB_InitWindow(screenWidth, screenHeight,
                   "raylib [core] example - basic window");
-
-  Vector2 startingPositions[3] = {
-      {400.0f, 150.0f}, {300.0f, 300.0f}, {500.0f, 300.0f}};
-  Vector2 trianglePositions[3] = {startingPositions[0], startingPositions[1],
-                                  startingPositions[2]};
 
 #if defined(RAYPLATE_ANGLE_ENABLED)
   GraphicsApiLogRenderer();
