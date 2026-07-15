@@ -9,6 +9,17 @@ on:
     branches: ['**']
 
 jobs:
+  format:
+    name: Check C formatting
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - name: Check formatting
+        run: clang-format --dry-run --Werror src/*.c src/*.h
+
   build:
     name: Build on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
@@ -37,10 +48,13 @@ jobs:
         run: ${{ matrix.install_deps }}
 
       - name: Configure CMake
-        run: cmake -B build ${{ matrix.cmake_args }} -DRL_ALIAS_MODE="INLINE" -DRAYLIB_ALIAS_PREFIX="RLIB_" -DRLGL_ALIAS_PREFIX="RLGL_"
+        run: cmake -B build ${{ matrix.cmake_args }} -DRAYPLATE_WARNINGS_AS_ERRORS=ON -DRL_ALIAS_MODE="INLINE" -DRAYLIB_ALIAS_PREFIX="RLIB_" -DRLGL_ALIAS_PREFIX="RLGL_"
 
       - name: Build
         run: cmake --build build --config Release
+
+      - name: Test
+        run: ctest --test-dir build -C Release --output-on-failure
 
       - name: Verify Linux resolves rlgl through ANGLE
         if: runner.os == 'Linux'

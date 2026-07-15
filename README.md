@@ -11,6 +11,26 @@ Rayplate is a raylib 6.0 CMake template with runtime-selectable native graphics 
 
 The desktop build downloads a small, SHA-256-locked ANGLE runtime bundle produced from Electron. Web builds continue to use Emscripten/WebGL without ANGLE.
 
+## Use this template
+
+Set the four project identity values at the top of `CMakeLists.txt` before you
+start building your game:
+
+```cmake
+set(RAYPLATE_TARGET_NAME "my_game" CACHE STRING "Executable and build target name")
+set(RAYPLATE_DISPLAY_NAME "My Game" CACHE STRING "Human-readable application name")
+set(RAYPLATE_VERSION "0.1.0" CACHE STRING "Application version")
+set(RAYPLATE_BUNDLE_IDENTIFIER "com.example.my-game" CACHE STRING
+    "Reverse-DNS application bundle identifier")
+```
+
+The target name controls native executable, macOS bundle, and web artifact
+filenames. The display name, version, and bundle identifier configure platform
+metadata. Change `GAME_DISPLAY_NAME` in `src/main.c` to set the sample window
+title, then replace the sample game code there. The bundled release workflow intentionally retains
+its existing `my_game` artifact paths, so update those paths separately if you
+change `RAYPLATE_TARGET_NAME` and still use that workflow.
+
 ```c
 #include "graphics_api.h"
 #include <rl_alias.h>
@@ -75,10 +95,28 @@ sudo apt install \
   libxinerama-dev \
   libxrandr-dev \
   libxkbcommon-dev \
+  ninja-build \
   pkg-config
 ```
 
 Configure and build:
+
+```sh
+cmake --preset desktop-debug
+cmake --build --preset desktop-debug --parallel
+ctest --preset desktop-debug
+```
+
+Run the configure and build commands once after cloning. They generate the
+compilation database used by code editors. The included `.clangd` points clangd
+at `build/desktop-debug`; reload
+the editor after the first build if it was already open.
+
+`desktop-release` builds an optimized desktop application,
+`desktop-sanitize` enables runtime memory and undefined-behavior checks, and
+`desktop-no-angle` is useful when you want raylib's native OpenGL path. These
+presets use Ninja; the equivalent generator-independent commands remain
+available:
 
 ```sh
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
@@ -144,8 +182,7 @@ permissions, bundle metadata, and code signatures survive download.
 
 Set `RAYPLATE_MACOS_ADHOC_SIGN=OFF` only when another packaging system will
 sign the finished bundle itself. The default bundle identity and version can
-be changed with `RAYPLATE_MACOS_BUNDLE_IDENTIFIER` and
-`RAYPLATE_MACOS_BUNDLE_VERSION`.
+be changed with `RAYPLATE_BUNDLE_IDENTIFIER` and `RAYPLATE_VERSION`.
 
 ## Fully local or offline ANGLE
 
@@ -172,7 +209,9 @@ cmake -S . -B build/local-angle \
 cmake --build build/local-angle --parallel
 ```
 
-The local checksum is optional for a trusted file but recommended. No vcpkg, Python, or Electron installation is required for either local ANGLE mode. For a completely network-free build, also provide a local raylib checkout:
+The local checksum is optional for a trusted file but recommended. No vcpkg,
+Python, or Electron installation is required for either local ANGLE mode. For a
+completely network-free build, also provide a local raylib checkout:
 
 ```sh
 cmake -S . -B build/offline \
@@ -287,6 +326,30 @@ cmake -S . -B build \
 ```
 
 When aliases are disabled, application source must include `raylib.h`/`rlgl.h` and use the original API names.
+
+## Build diagnostics
+
+Application code is compiled as portable C99 with compiler extensions disabled.
+Warnings are enabled at `/W4` on MSVC and `-Wall -Wextra -Wpedantic` on GCC and
+Clang. To make those application warnings fatal (as CI does), configure with:
+
+```sh
+cmake -S . -B build -DRAYPLATE_WARNINGS_AS_ERRORS=ON
+```
+
+AddressSanitizer can catch memory errors during local debug builds. GCC and
+Clang builds also enable UndefinedBehaviorSanitizer:
+
+```sh
+cmake --preset desktop-sanitize
+cmake --build --preset desktop-sanitize --parallel
+ctest --preset desktop-sanitize
+```
+
+Sanitizers are intended for native development builds, not WebAssembly or
+release packaging. Source formatting follows `.clang-format` and basic editor
+behavior follows `.editorconfig`; check C formatting with
+`clang-format --dry-run --Werror src/*.c src/*.h`.
 
 ## Application releases
 

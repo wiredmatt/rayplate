@@ -1,9 +1,24 @@
 cmake_minimum_required(VERSION 3.25)
-project(my_game)
+
+# Project identity defaults used by CMake and generated application metadata.
+set(RAYPLATE_TARGET_NAME "my_game" CACHE STRING "Executable and build target name")
+set(RAYPLATE_DISPLAY_NAME "My Game" CACHE STRING "Human-readable application name")
+set(RAYPLATE_VERSION "0.1.0" CACHE STRING "Application version")
+set(RAYPLATE_BUNDLE_IDENTIFIER "io.github.example.my-game" CACHE STRING
+    "Reverse-DNS application bundle identifier")
+
+project(${RAYPLATE_TARGET_NAME} VERSION ${RAYPLATE_VERSION} LANGUAGES C)
 include(CTest)
 set(CMAKE_C_STANDARD 99)
+set(CMAKE_C_STANDARD_REQUIRED ON)
+set(CMAKE_C_EXTENSIONS OFF)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
+
+option(RAYPLATE_WARNINGS_AS_ERRORS
+    "Treat warnings in Rayplate application code as errors" OFF)
+option(RAYPLATE_ENABLE_SANITIZERS
+    "Enable AddressSanitizer and, where supported, UndefinedBehaviorSanitizer" OFF)
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 include(RayplateAngle)

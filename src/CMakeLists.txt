@@ -1,22 +1,49 @@
 cmake_minimum_required(VERSION 3.25)
 if(APPLE)
     add_executable(${PROJECT_NAME} MACOSX_BUNDLE)
-    set(RAYPLATE_MACOS_BUNDLE_IDENTIFIER "io.github.wiredmatt.rayplate" CACHE STRING
-        "Bundle identifier used for the macOS application")
-    set(RAYPLATE_MACOS_BUNDLE_VERSION "1.0.0" CACHE STRING
-        "Version written to the macOS application bundle")
     set_target_properties(${PROJECT_NAME} PROPERTIES
-        MACOSX_BUNDLE_BUNDLE_NAME "${PROJECT_NAME}"
-        MACOSX_BUNDLE_GUI_IDENTIFIER "${RAYPLATE_MACOS_BUNDLE_IDENTIFIER}"
-        MACOSX_BUNDLE_BUNDLE_VERSION "${RAYPLATE_MACOS_BUNDLE_VERSION}"
-        MACOSX_BUNDLE_SHORT_VERSION_STRING "${RAYPLATE_MACOS_BUNDLE_VERSION}"
+        MACOSX_BUNDLE_BUNDLE_NAME "${RAYPLATE_DISPLAY_NAME}"
+        MACOSX_BUNDLE_GUI_IDENTIFIER "${RAYPLATE_BUNDLE_IDENTIFIER}"
+        MACOSX_BUNDLE_BUNDLE_VERSION "${PROJECT_VERSION}"
+        MACOSX_BUNDLE_SHORT_VERSION_STRING "${PROJECT_VERSION}"
     )
 else()
     add_executable(${PROJECT_NAME})
 endif()
 
-target_sources(${PROJECT_NAME} PRIVATE main.c)
+target_sources(${PROJECT_NAME} PRIVATE
+    main.c
+    game.c
+    game.h
+)
 target_link_libraries(${PROJECT_NAME} PRIVATE raylib)
+
+# Keep strict warnings scoped to application code so third-party dependencies do
+# not break a build when a compiler adds a new diagnostic.
+if(MSVC)
+    target_compile_options(${PROJECT_NAME} PRIVATE /W4)
+    if(RAYPLATE_WARNINGS_AS_ERRORS)
+        target_compile_options(${PROJECT_NAME} PRIVATE /WX)
+    endif()
+elseif(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang")
+    target_compile_options(${PROJECT_NAME} PRIVATE -Wall -Wextra -Wpedantic)
+    if(RAYPLATE_WARNINGS_AS_ERRORS)
+        target_compile_options(${PROJECT_NAME} PRIVATE -Werror)
+    endif()
+endif()
+
+if(RAYPLATE_ENABLE_SANITIZERS)
+    if(MSVC)
+        target_compile_options(${PROJECT_NAME} PRIVATE /fsanitize=address)
+    elseif(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang")
+        target_compile_options(${PROJECT_NAME} PRIVATE
+            -fsanitize=address,undefined -fno-omit-frame-pointer)
+        target_link_options(${PROJECT_NAME} PRIVATE -fsanitize=address,undefined)
+    else()
+        message(FATAL_ERROR
+            "RAYPLATE_ENABLE_SANITIZERS is unsupported by ${CMAKE_C_COMPILER_ID}")
+    endif()
+endif()
 
 if(RAYPLATE_ANGLE_ENABLED)
     target_sources(${PROJECT_NAME} PRIVATE graphics_api.c graphics_api.h)
