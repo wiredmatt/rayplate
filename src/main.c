@@ -15,13 +15,16 @@ int main(int argc, char **argv) {
     return 0;
   if (angleResult == ANGLE_CONFIGURE_ERROR)
     return 2;
-  ANGLE_LogRenderer();
 #endif
 
   (void)argc;
   (void)argv;
 
   GAME_GameInit(); // Initialize raylib window and game resources
+
+#if defined(GAME_ANGLE_ENABLED)
+  ANGLE_LogRenderer();
+#endif
 
 #if defined(PLATFORM_WEB) // Initialize emscripten specific main loop
   emscripten_set_main_loop(GAME_GameRunFrame, 0, 1);
