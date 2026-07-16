@@ -269,6 +269,11 @@ cmake --build build/web --parallel
 
 This produces `my_game.html`, `my_game.js`, and `my_game.wasm`. Serve the directory through a local web server rather than opening the HTML file directly.
 
+Pushes to `main` also build and deploy these files to GitHub Pages through
+[`deploy-pages.yml`](.github/workflows/deploy-pages.yml). Enable GitHub Pages
+with **GitHub Actions** as its source before the first deployment. The deployed
+site uses `my_game.html` as its root `index.html`.
+
 ## API alias generation
 
 The generated `rl_alias.h` includes both API layers:
