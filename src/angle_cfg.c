@@ -29,21 +29,17 @@ static const GraphicsApiChoice choices[] = {
 #endif
 };
 #elif defined(__APPLE__)
-static const GraphicsApiChoice choices[] = {
-    {"metal", "Metal", "metal", GLFW_ANGLE_PLATFORM_TYPE_METAL},
-    {"opengl", "OpenGL", "gl", GLFW_ANGLE_PLATFORM_TYPE_OPENGL}};
+static const GraphicsApiChoice choices[] = {{"metal", "Metal", "metal", GLFW_ANGLE_PLATFORM_TYPE_METAL},
+                                            {"opengl", "OpenGL", "gl", GLFW_ANGLE_PLATFORM_TYPE_OPENGL}};
 #else
-static const GraphicsApiChoice choices[] = {
-    {"vulkan", "Vulkan", "vulkan", GLFW_ANGLE_PLATFORM_TYPE_VULKAN},
-    {"opengl", "OpenGL", "gl", GLFW_ANGLE_PLATFORM_TYPE_OPENGL}};
+static const GraphicsApiChoice choices[] = {{"vulkan", "Vulkan", "vulkan", GLFW_ANGLE_PLATFORM_TYPE_VULKAN},
+                                            {"opengl", "OpenGL", "gl", GLFW_ANGLE_PLATFORM_TYPE_OPENGL}};
 #endif
 
 enum { defaultChoice = 0 };
 static const GraphicsApiChoice *selectedChoice = &choices[defaultChoice];
 
-static int StringEquals(const char *left, const char *right) {
-  return strcmp(left, right) == 0;
-}
+static int StringEquals(const char *left, const char *right) { return strcmp(left, right) == 0; }
 
 static const GraphicsApiChoice *FindChoice(const char *value) {
   if (StringEquals(value, "dx11") || StringEquals(value, "d3d11"))
@@ -53,8 +49,7 @@ static const GraphicsApiChoice *FindChoice(const char *value) {
   else if (StringEquals(value, "gl"))
     value = "opengl";
 
-  for (size_t index = 0; index < sizeof(choices) / sizeof(choices[0]);
-       index++) {
+  for (size_t index = 0; index < sizeof(choices) / sizeof(choices[0]); index++) {
     if (StringEquals(value, choices[index].argument))
       return &choices[index];
   }
@@ -66,8 +61,7 @@ static void PrintUsage(const char *program) {
   fprintf(stderr, "Usage: %s [--graphics-api=<api>]\n", program);
   fprintf(stderr, "Available graphics APIs:");
 
-  for (size_t index = 0; index < sizeof(choices) / sizeof(choices[0]);
-       index++) {
+  for (size_t index = 0; index < sizeof(choices) / sizeof(choices[0]); index++) {
     fprintf(stderr, "%s%s", (index == 0) ? " " : ", ", choices[index].argument);
   }
 
@@ -92,8 +86,7 @@ static int ConfigureLinuxVulkanLoader(void) {
   // The Vulkan loader enumerates every installed ICD.  Stale system
   // SwiftShader builds can crash while ANGLE queries device properties, so
   // keep the hardware path clear unless the user explicitly selected ICDs.
-  if ((driverFiles != NULL && driverFiles[0] != '\0') ||
-      (legacyDriverFiles != NULL && legacyDriverFiles[0] != '\0') ||
+  if ((driverFiles != NULL && driverFiles[0] != '\0') || (legacyDriverFiles != NULL && legacyDriverFiles[0] != '\0') ||
       (selectedDrivers != NULL && selectedDrivers[0] != '\0')) {
     return 1;
   }
@@ -114,8 +107,7 @@ static int ConfigureLinuxVulkanLoader(void) {
   }
 
   int written = snprintf(combined, length, "%s,*swiftshader*", disabledDrivers);
-  int result = (written > 0 && (size_t)written < length &&
-                setenv("VK_LOADER_DRIVERS_DISABLE", combined, 1) == 0);
+  int result = (written > 0 && (size_t)written < length && setenv("VK_LOADER_DRIVERS_DISABLE", combined, 1) == 0);
 
   free(combined);
   return result;
@@ -148,8 +140,7 @@ ANGLE_ConfigureResult ANGLE_Configure(int argc, char **argv) {
     selectedChoice = FindChoice(requested);
 
     if (selectedChoice == NULL) {
-      fprintf(stderr, "Unsupported graphics API on this platform: %s\n",
-              requested);
+      fprintf(stderr, "Unsupported graphics API on this platform: %s\n", requested);
       PrintUsage(argv[0]);
       return ANGLE_CONFIGURE_ERROR;
     }
@@ -160,8 +151,7 @@ ANGLE_ConfigureResult ANGLE_Configure(int argc, char **argv) {
     return ANGLE_CONFIGURE_ERROR;
   }
 #if defined(__linux__)
-  if (StringEquals(selectedChoice->argument, "vulkan") &&
-      !ConfigureLinuxVulkanLoader()) {
+  if (StringEquals(selectedChoice->argument, "vulkan") && !ConfigureLinuxVulkanLoader()) {
     fprintf(stderr, "Could not configure the Vulkan loader\n");
     return ANGLE_CONFIGURE_ERROR;
   }
@@ -191,11 +181,8 @@ void ANGLE_LogRenderer(void) {
     const unsigned char *renderer = getString(GL_RENDERER_VALUE);
     const unsigned char *version = getString(GL_VERSION_VALUE);
 
-    TraceLog(LOG_INFO, "ANGLE: Requested backend: %s",
-             selectedChoice->displayName);
-    TraceLog(LOG_INFO, "ANGLE: GL renderer: %s",
-             (renderer != NULL) ? (const char *)renderer : "unknown");
-    TraceLog(LOG_INFO, "ANGLE: GL version: %s",
-             (version != NULL) ? (const char *)version : "unknown");
+    TraceLog(LOG_INFO, "ANGLE: Requested backend: %s", selectedChoice->displayName);
+    TraceLog(LOG_INFO, "ANGLE: GL renderer: %s", (renderer != NULL) ? (const char *)renderer : "unknown");
+    TraceLog(LOG_INFO, "ANGLE: GL version: %s", (version != NULL) ? (const char *)version : "unknown");
   }
 }

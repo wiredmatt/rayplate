@@ -70,10 +70,8 @@ static void GAME_DrawVertexHandles(void) {
   for (int index = 0; index < GAME_VERTEX_COUNT; index++) {
     Vector2 position = game.trianglePositions[index];
 
-    if (RLIB_CheckCollisionPointCircle(mousePosition, position,
-                                       game.handleRadius)) {
-      RLIB_DrawCircleV(position, game.handleRadius,
-                       RLIB_ColorAlpha(RLIB_DARKGRAY, 0.5f));
+    if (RLIB_CheckCollisionPointCircle(mousePosition, position, game.handleRadius)) {
+      RLIB_DrawCircleV(position, game.handleRadius, RLIB_ColorAlpha(RLIB_DARKGRAY, 0.5f));
     }
 
     if (index == game.selectedVertex) {
@@ -86,12 +84,9 @@ static void GAME_DrawVertexHandles(void) {
 
 static void GAME_DrawControls(void) {
   RLIB_DrawText("SPACE: Toggle lines mode", 10, 10, 20, RLIB_DARKGRAY);
-  RLIB_DrawText("LEFT-RIGHT: Toggle backface culling", 10, 40, 20,
-                RLIB_DARKGRAY);
-  RLIB_DrawText("MOUSE: Click and drag vertex points", 10, 70, 20,
-                RLIB_DARKGRAY);
-  RLIB_DrawText("R: Reset triangle to start positions", 10, 100, 20,
-                RLIB_DARKGRAY);
+  RLIB_DrawText("LEFT-RIGHT: Toggle backface culling", 10, 40, 20, RLIB_DARKGRAY);
+  RLIB_DrawText("MOUSE: Click and drag vertex points", 10, 70, 20, RLIB_DARKGRAY);
+  RLIB_DrawText("R: Reset triangle to start positions", 10, 100, 20, RLIB_DARKGRAY);
 }
 
 void GAME_GameInit(void) {
@@ -113,8 +108,7 @@ static void GAME_GameUpdate(void) {
 
   Vector2 mousePosition = RLIB_GetMousePosition();
   for (int index = 0; index < GAME_VERTEX_COUNT; index++) {
-    if (RLIB_CheckCollisionPointCircle(
-            mousePosition, game.trianglePositions[index], game.handleRadius) &&
+    if (RLIB_CheckCollisionPointCircle(mousePosition, game.trianglePositions[index], game.handleRadius) &&
         RLIB_IsMouseButtonDown(RLIB_MOUSE_BUTTON_LEFT)) {
       game.selectedVertex = index;
       break;

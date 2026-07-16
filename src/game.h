@@ -21,9 +21,7 @@
 
 void GAME_GameInit(void);
 void GAME_GameRunFrame(void);
-static inline _Bool GAME_ShouldShutDown(void) {
-  return RLIB_WindowShouldClose();
-}
+static inline _Bool GAME_ShouldShutDown(void) { return RLIB_WindowShouldClose(); }
 void GAME_ShutDown(void);
 
 #endif
