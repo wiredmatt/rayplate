@@ -19,41 +19,51 @@ Set the four project identity values at the top of `CMakeLists.txt` before you s
 set(GAME_BIN_NAME "my_game" CACHE STRING "Executable and build target name")
 set(GAME_WINDOW_TITLE "My Game" CACHE STRING "Human-readable application name")
 set(GAME_VERSION "0.1.0" CACHE STRING "Application version")
-set(GAME_BUNDLE_IDENTIFIER "com.example.my-game" CACHE STRING "application bundle identifier")
+set(GAME_BUNDLE_IDENTIFIER "io.github.example.my-game" CACHE STRING
+    "Reverse-DNS application bundle identifier")
 ```
 
-The target name controls native executable, macOS bundle, and web artifact filenames. The display name, version, and bundle identifier configure platform metadata. Change `GAME_WINDOW_TITLE` in `src/main.c` to set the sample window title, then replace the sample game code there. The bundled release workflow intentionally retains its existing `my_game` artifact paths, so update those paths separately if you
-change `GAME_BIN_NAME` and still use that workflow.
+The target name controls native executable, macOS bundle, and web artifact
+filenames. The display name, version, and bundle identifier configure platform
+metadata. The application window uses the `GAME_WINDOW_TITLE` fallback in
+`src/game.h`; keep it in sync with the CMake value when renaming the sample.
+The build, release, and Pages workflows intentionally retain their existing
+`my_game` artifact paths, so update those paths separately if you change
+`GAME_BIN_NAME` and still use those workflows.
+
+`src/main.c` owns ANGLE setup and the platform-specific desktop or web main
+loop. Game initialization, per-frame work, and shutdown live in `src/game.c`
+and `src/game.h`. A minimal replacement for `src/game.c` looks like this:
 
 ```c
-#include "graphics_api.h"
-#include <rl_alias.h>
+#include "game.h"
 
-int main(int argc, char **argv)
-{
-    GraphicsApiConfigureResult result = GraphicsApiConfigure(argc, argv);
-    if (result != GRAPHICS_API_CONFIGURE_CONTINUE)
-        return (result == GRAPHICS_API_CONFIGURE_EXIT)? 0 : 2;
-
-    RLIB_InitWindow(800, 450, "My game");
-    GraphicsApiLogRenderer();
-
-    while (!RLIB_WindowShouldClose())
-    {
-        RLIB_BeginDrawing();
-        RLIB_ClearBackground(RAYWHITE);
-        RLIB_DrawText("Hello from raylib through ANGLE", 120, 210, 20, DARKGRAY);
-        RLIB_EndDrawing();
-    }
-
-    RLIB_CloseWindow();
-    return 0;
+void GAME_GameInit(void) {
+  RLIB_InitWindow(GAME_WINDOW_WIDTH, GAME_WINDOW_HEIGHT, GAME_WINDOW_TITLE);
+  RLIB_SetTargetFPS(GAME_TARGET_FPS);
 }
+
+void GAME_GameRunFrame(void) {
+  RLIB_BeginDrawing();
+  RLIB_ClearBackground(RLIB_RAYWHITE);
+  RLIB_DrawText("Hello from raylib through ANGLE", 120, 210, 20, RLIB_DARKGRAY);
+  RLIB_EndDrawing();
+}
+
+void GAME_ShutDown(void) { RLIB_CloseWindow(); }
 ```
+
+With the default alias configuration, raylib functions and public constants use
+the `RLIB_` prefix, while rlgl functions and constants use `RLGL_`. Public
+raylib types such as `Vector2`, `Color`, and `Texture2D` retain their original
+names. If you customize the bootstrap code, its current native ANGLE interface
+is `ANGLE_Configure`, `ANGLE_ConfigureResult`, `ANGLE_CONFIGURE_*`, and
+`ANGLE_LogRenderer` from `angle_cfg.h`; the former `GraphicsApi*` names no
+longer exist.
 
 ## How the graphics stack works
 
-Rayplate builds raylib and rlgl for OpenGL ES 3 and uses raylib's bundled GLFW EGL context path. At startup, `--graphics-api` selects an ANGLE renderer before `InitWindow()` creates the context.
+Rayplate builds raylib and rlgl for OpenGL ES 3 and uses raylib's bundled GLFW EGL context path. At startup, `--graphics-api` selects an ANGLE renderer before `RLIB_InitWindow()` creates the context.
 
 The repository vendors only [Khronos's platform-independent GLES declarations](third_party/khronos/README.md). At link time, rlgl's GLES calls resolve directly to the selected Electron `libGLESv2`; GLFW loads Electron's `libEGL` to create the ANGLE context. Host OpenGL remains available only for GLFW's alternate native context implementation.
 
@@ -101,7 +111,10 @@ cmake --build --preset desktop-debug --parallel
 ctest --preset desktop-debug
 ```
 
-Run the configure and build commands once after cloning. They generate the compilation database used by code editors. The included `.clangd` points clangd at `build/desktop-debug`; reload the editor after the first build if it was already open.
+Run the configure and build commands once after cloning. They generate
+`build/desktop-debug/compile_commands.json`; point clangd or another C/C++
+language server at that compilation database, then reload the editor if it was
+already open.
 
 `desktop-release` builds an optimized desktop application,
 `desktop-sanitize` enables runtime memory and undefined-behavior checks, and
@@ -114,7 +127,7 @@ cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build --parallel
 ```
 
-The ANGLE libraries, Electron's matching Linux Vulkan loader, and their license/provenance manifest are staged automatically. Linux and Windows place them beside the executable; macOS places them in the standard locations inside `build/my_game.app`.
+The ANGLE libraries, Electron's matching Linux Vulkan loader, and their license/provenance manifest are staged automatically. Linux and Windows place them beside the executable; macOS places them in the standard locations inside the generated `my_game.app` bundle.
 
 Electron's Windows ARM64 ANGLE build does not contain the WGL/OpenGL renderer, so that one architecture intentionally omits `opengl`. The packaging script fails closed if an Electron update lacks any backend expected for its target.
 
@@ -122,20 +135,20 @@ Electron's Windows ARM64 ANGLE build does not contain the WGL/OpenGL renderer, s
 
 ```sh
 # Linux
-./build/my_game --graphics-api=vulkan
-./build/my_game --graphics-api=opengl
+./build/desktop-debug/my_game --graphics-api=vulkan
+./build/desktop-debug/my_game --graphics-api=opengl
 
 # Windows
-my_game.exe --graphics-api=directx
-my_game.exe --graphics-api=vulkan
-my_game.exe --graphics-api=opengl
+./build/desktop-debug/my_game.exe --graphics-api=directx
+./build/desktop-debug/my_game.exe --graphics-api=vulkan
+./build/desktop-debug/my_game.exe --graphics-api=opengl
 
 # macOS
-./build/my_game.app/Contents/MacOS/my_game --graphics-api=metal
-./build/my_game.app/Contents/MacOS/my_game --graphics-api=opengl
+./build/desktop-debug/my_game.app/Contents/MacOS/my_game --graphics-api=metal
+./build/desktop-debug/my_game.app/Contents/MacOS/my_game --graphics-api=opengl
 
 # Or launch the bundle through Finder-compatible tooling
-open build/my_game.app --args --graphics-api=metal
+open build/desktop-debug/my_game.app --args --graphics-api=metal
 ```
 
 `--graphics-api value` is also accepted. The startup log reports both the requested backend and ANGLE's actual `GL_RENDERER` string.
@@ -260,19 +273,22 @@ performs no compilation or binary rewriting, and its manifest records files extr
 
 ## Build for web
 
-Install Emscripten and configure through `emcmake`:
+Install Emscripten and configure the web preset through `emcmake`:
 
 ```sh
-emcmake cmake -S . -B build/web -DPLATFORM=Web
-cmake --build build/web --parallel
+emcmake cmake --preset web-release
+cmake --build --preset web-release --parallel
 ```
 
-This produces `my_game.html`, `my_game.js`, and `my_game.wasm`. Serve the directory through a local web server rather than opening the HTML file directly.
+This produces `my_game.html`, `my_game.js`, and `my_game.wasm` in
+`build/web-release`. Serve that directory through a local web server rather
+than opening the HTML file directly.
 
 Pushes to `main` also build and deploy these files to GitHub Pages through
 [`deploy-pages.yml`](.github/workflows/deploy-pages.yml). Enable GitHub Pages
 with **GitHub Actions** as its source before the first deployment. The deployed
-site uses `my_game.html` as its root `index.html`.
+site uses `my_game.html` as its root `index.html`. This repository's current
+deployment is available at <https://wiredmatt.github.io/rayplate/>.
 
 ## API alias generation
 
