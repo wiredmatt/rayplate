@@ -18,6 +18,16 @@ target_sources(${PROJECT_NAME} PRIVATE
 )
 target_link_libraries(${PROJECT_NAME} PRIVATE raylib)
 
+# Escape the cache value as a C string literal before passing it through the
+# compiler command line. This keeps CMake as the single source of truth for the
+# application and macOS bundle title.
+set(game_window_title_c "${GAME_WINDOW_TITLE}")
+string(REPLACE "\\" "\\\\" game_window_title_c "${game_window_title_c}")
+string(REPLACE "\"" "\\\"" game_window_title_c "${game_window_title_c}")
+target_compile_definitions(${PROJECT_NAME} PRIVATE
+    GAME_WINDOW_TITLE="${game_window_title_c}"
+)
+
 # Keep strict warnings scoped to application code so third-party dependencies do
 # not break a build when a compiler adds a new diagnostic.
 if(MSVC)

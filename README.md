@@ -25,11 +25,10 @@ set(GAME_BUNDLE_IDENTIFIER "io.github.example.my-game" CACHE STRING
 
 The target name controls native executable, macOS bundle, and web artifact
 filenames. The display name, version, and bundle identifier configure platform
-metadata. The application window uses the `GAME_WINDOW_TITLE` fallback in
-`src/game.h`; keep it in sync with the CMake value when renaming the sample.
-The build, release, and Pages workflows intentionally retain their existing
-`my_game` artifact paths, so update those paths separately if you change
-`GAME_BIN_NAME` and still use those workflows.
+metadata, and `GAME_WINDOW_TITLE` is also passed to the application as its
+window title. The build, release, and Pages workflows intentionally retain
+their existing `my_game` artifact paths, so update those paths separately if
+you change `GAME_BIN_NAME` and still use those workflows.
 
 `src/main.c` owns ANGLE setup and the platform-specific desktop or web main
 loop. Game initialization, per-frame work, and shutdown live in `src/game.c`
