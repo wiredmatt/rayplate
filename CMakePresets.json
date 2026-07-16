@@ -12,20 +12,24 @@
       "generator": "Ninja",
       "binaryDir": "${sourceDir}/build/${presetName}",
       "cacheVariables": {
-        "RAYPLATE_ANGLE_PROVIDER": "DOWNLOAD"
+        "GAME_ANGLE_PROVIDER": "DOWNLOAD"
       }
     },
     {
       "name": "desktop-debug",
       "inherits": "desktop-base",
       "displayName": "Desktop debug",
-      "cacheVariables": { "CMAKE_BUILD_TYPE": "Debug" }
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug"
+      }
     },
     {
       "name": "desktop-release",
       "inherits": "desktop-base",
       "displayName": "Desktop release",
-      "cacheVariables": { "CMAKE_BUILD_TYPE": "Release" }
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release"
+      }
     },
     {
       "name": "desktop-sanitize",
@@ -33,7 +37,7 @@
       "displayName": "Desktop debug with sanitizers",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug",
-        "RAYPLATE_ENABLE_SANITIZERS": "ON"
+        "GAME_ENABLE_SANITIZERS": "ON"
       }
     },
     {
@@ -42,7 +46,7 @@
       "displayName": "Desktop debug without ANGLE",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug",
-        "RAYPLATE_ANGLE_PROVIDER": "OFF"
+        "GAME_ANGLE_PROVIDER": "OFF"
       }
     },
     {
@@ -57,27 +61,48 @@
     }
   ],
   "buildPresets": [
-    { "name": "desktop-debug", "configurePreset": "desktop-debug" },
-    { "name": "desktop-release", "configurePreset": "desktop-release" },
-    { "name": "desktop-sanitize", "configurePreset": "desktop-sanitize" },
-    { "name": "desktop-no-angle", "configurePreset": "desktop-no-angle" },
-    { "name": "web-release", "configurePreset": "web-release" }
+    {
+      "name": "desktop-debug",
+      "configurePreset": "desktop-debug"
+    },
+    {
+      "name": "desktop-release",
+      "configurePreset": "desktop-release"
+    },
+    {
+      "name": "desktop-sanitize",
+      "configurePreset": "desktop-sanitize"
+    },
+    {
+      "name": "desktop-no-angle",
+      "configurePreset": "desktop-no-angle"
+    },
+    {
+      "name": "web-release",
+      "configurePreset": "web-release"
+    }
   ],
   "testPresets": [
     {
       "name": "desktop-debug",
       "configurePreset": "desktop-debug",
-      "output": { "outputOnFailure": true }
+      "output": {
+        "outputOnFailure": true
+      }
     },
     {
       "name": "desktop-release",
       "configurePreset": "desktop-release",
-      "output": { "outputOnFailure": true }
+      "output": {
+        "outputOnFailure": true
+      }
     },
     {
       "name": "desktop-sanitize",
       "configurePreset": "desktop-sanitize",
-      "output": { "outputOnFailure": true }
+      "output": {
+        "outputOnFailure": true
+      }
     }
   ]
 }

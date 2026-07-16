@@ -2,7 +2,7 @@
 #define _POSIX_C_SOURCE 200809L
 #endif
 
-#include "graphics_api.h"
+#include "angle_cfg.h"
 
 #define GLFW_INCLUDE_NONE
 #include <GLFW/glfw3.h>
@@ -58,16 +58,19 @@ static const GraphicsApiChoice *FindChoice(const char *value) {
     if (StringEquals(value, choices[index].argument))
       return &choices[index];
   }
+
   return NULL;
 }
 
 static void PrintUsage(const char *program) {
   fprintf(stderr, "Usage: %s [--graphics-api=<api>]\n", program);
   fprintf(stderr, "Available graphics APIs:");
+
   for (size_t index = 0; index < sizeof(choices) / sizeof(choices[0]);
        index++) {
     fprintf(stderr, "%s%s", (index == 0) ? " " : ", ", choices[index].argument);
   }
+
   fprintf(stderr, "\n");
 }
 
@@ -94,39 +97,48 @@ static int ConfigureLinuxVulkanLoader(void) {
       (selectedDrivers != NULL && selectedDrivers[0] != '\0')) {
     return 1;
   }
+
   if (disabledDrivers == NULL || disabledDrivers[0] == '\0') {
     return setenv("VK_LOADER_DRIVERS_DISABLE", "*swiftshader*", 1) == 0;
   }
-  if (strstr(disabledDrivers, "swiftshader") != NULL)
+
+  if (strstr(disabledDrivers, "swiftshader") != NULL) {
     return 1;
+  }
 
   size_t length = strlen(disabledDrivers) + strlen(",*swiftshader*") + 1;
   char *combined = malloc(length);
-  if (combined == NULL)
+
+  if (combined == NULL) {
     return 0;
+  }
+
   int written = snprintf(combined, length, "%s,*swiftshader*", disabledDrivers);
   int result = (written > 0 && (size_t)written < length &&
                 setenv("VK_LOADER_DRIVERS_DISABLE", combined, 1) == 0);
+
   free(combined);
   return result;
 }
 #endif
 
-GraphicsApiConfigureResult GraphicsApiConfigure(int argc, char **argv) {
+ANGLE_ConfigureResult ANGLE_Configure(int argc, char **argv) {
   const char *requested = NULL;
+
   for (int index = 1; index < argc; index++) {
     const char *argument = argv[index];
     if (StringEquals(argument, "--help") || StringEquals(argument, "-h")) {
       PrintUsage(argv[0]);
-      return GRAPHICS_API_CONFIGURE_EXIT;
+      return ANGLE_CONFIGURE_EXIT;
     }
+
     if (strncmp(argument, "--graphics-api=", 15) == 0) {
       requested = argument + 15;
     } else if (StringEquals(argument, "--graphics-api")) {
       if (index + 1 >= argc) {
         fprintf(stderr, "--graphics-api requires a value\n");
         PrintUsage(argv[0]);
-        return GRAPHICS_API_CONFIGURE_ERROR;
+        return ANGLE_CONFIGURE_ERROR;
       }
       requested = argv[++index];
     }
@@ -134,43 +146,51 @@ GraphicsApiConfigureResult GraphicsApiConfigure(int argc, char **argv) {
 
   if (requested != NULL) {
     selectedChoice = FindChoice(requested);
+
     if (selectedChoice == NULL) {
       fprintf(stderr, "Unsupported graphics API on this platform: %s\n",
               requested);
       PrintUsage(argv[0]);
-      return GRAPHICS_API_CONFIGURE_ERROR;
+      return ANGLE_CONFIGURE_ERROR;
     }
   }
 
   if (!SetAnglePlatform(selectedChoice->anglePlatform)) {
     fprintf(stderr, "Could not set ANGLE_DEFAULT_PLATFORM\n");
-    return GRAPHICS_API_CONFIGURE_ERROR;
+    return ANGLE_CONFIGURE_ERROR;
   }
 #if defined(__linux__)
   if (StringEquals(selectedChoice->argument, "vulkan") &&
       !ConfigureLinuxVulkanLoader()) {
     fprintf(stderr, "Could not configure the Vulkan loader\n");
-    return GRAPHICS_API_CONFIGURE_ERROR;
+    return ANGLE_CONFIGURE_ERROR;
   }
 #endif
+
   glfwInitHint(GLFW_ANGLE_PLATFORM_TYPE, selectedChoice->glfwAngleType);
-  return GRAPHICS_API_CONFIGURE_CONTINUE;
+
+  return ANGLE_CONFIGURE_CONTINUE;
 }
 
-const char *GraphicsApiName(void) { return selectedChoice->displayName; }
+const char *ANGLE_ApiName(void) { return selectedChoice->displayName; }
 
-void GraphicsApiLogRenderer(void) {
+void ANGLE_LogRenderer(void) {
   typedef const unsigned char *(*GlGetStringProc)(unsigned int name);
+
   const unsigned int GL_RENDERER_VALUE = 0x1F01;
   const unsigned int GL_VERSION_VALUE = 0x1F02;
+
   GLFWglproc glfwGetString = glfwGetProcAddress("glGetString");
   GlGetStringProc getString = NULL;
+
   if (sizeof(getString) == sizeof(glfwGetString)) {
     memcpy(&getString, &glfwGetString, sizeof(getString));
   }
+
   if (getString != NULL) {
     const unsigned char *renderer = getString(GL_RENDERER_VALUE);
     const unsigned char *version = getString(GL_VERSION_VALUE);
+
     TraceLog(LOG_INFO, "ANGLE: Requested backend: %s",
              selectedChoice->displayName);
     TraceLog(LOG_INFO, "ANGLE: GL renderer: %s",

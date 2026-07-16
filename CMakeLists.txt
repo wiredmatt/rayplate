@@ -1,13 +1,13 @@
 cmake_minimum_required(VERSION 3.25)
 
 # Project identity defaults used by CMake and generated application metadata.
-set(RAYPLATE_TARGET_NAME "my_game" CACHE STRING "Executable and build target name")
-set(RAYPLATE_DISPLAY_NAME "My Game" CACHE STRING "Human-readable application name")
-set(RAYPLATE_VERSION "0.1.0" CACHE STRING "Application version")
-set(RAYPLATE_BUNDLE_IDENTIFIER "io.github.example.my-game" CACHE STRING
+set(GAME_BIN_NAME "my_game" CACHE STRING "Executable and build target name")
+set(GAME_WINDOW_TITLE "My Game" CACHE STRING "Human-readable application name")
+set(GAME_VERSION "0.1.0" CACHE STRING "Application version")
+set(GAME_BUNDLE_IDENTIFIER "io.github.example.my-game" CACHE STRING
     "Reverse-DNS application bundle identifier")
 
-project(${RAYPLATE_TARGET_NAME} VERSION ${RAYPLATE_VERSION} LANGUAGES C)
+project(${GAME_BIN_NAME} VERSION ${GAME_VERSION} LANGUAGES C)
 include(CTest)
 set(CMAKE_C_STANDARD 99)
 set(CMAKE_C_STANDARD_REQUIRED ON)
@@ -15,14 +15,14 @@ set(CMAKE_C_EXTENSIONS OFF)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 
-option(RAYPLATE_WARNINGS_AS_ERRORS
+option(GAME_WARNINGS_AS_ERRORS
     "Treat warnings in Rayplate application code as errors" OFF)
-option(RAYPLATE_ENABLE_SANITIZERS
+option(GAME_ENABLE_SANITIZERS
     "Enable AddressSanitizer and, where supported, UndefinedBehaviorSanitizer" OFF)
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 include(RayplateAngle)
-rayplate_prepare_angle()
+game_prepare_angle()
 
 set(RL_ALIAS_MODE "INLINE" CACHE STRING "Alias implementation: INLINE, DEFINE, or empty to disable")
 set_property(CACHE RL_ALIAS_MODE PROPERTY STRINGS "INLINE" "DEFINE" "")
@@ -41,7 +41,15 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(raylib)
 
-rayplate_configure_angle_raylib(raylib)
+if(EMSCRIPTEN)
+    set_target_properties(raylib PROPERTIES
+        C_STANDARD 99
+        C_STANDARD_REQUIRED ON
+        C_EXTENSIONS ON
+    )
+endif()
+
+game_configure_angle_raylib(raylib)
 
 # Generate optional prefixed aliases for the raylib and rlgl APIs.
 set(RAYLIB_HEADER_PATH "${raylib_SOURCE_DIR}/src/raylib.h")
@@ -64,13 +72,13 @@ if(NOT RL_ALIAS_MODE STREQUAL "")
     add_custom_command(
         OUTPUT "${RL_ALIAS_HEADER_PATH}"
         COMMAND ${CMAKE_COMMAND}
-            -DRAYLIB_HEADER_PATH=${RAYLIB_HEADER_PATH}
-            -DRLGL_HEADER_PATH=${RLGL_HEADER_PATH}
-            -DRL_ALIAS_HEADER_PATH=${RL_ALIAS_HEADER_PATH}
-            -DRL_ALIAS_MODE=${RL_ALIAS_MODE}
-            -DRAYLIB_ALIAS_PREFIX=${RAYLIB_ALIAS_PREFIX}
-            -DRLGL_ALIAS_PREFIX=${RLGL_ALIAS_PREFIX}
-            -P ${ALIAS_SCRIPT_PATH}
+        -DRAYLIB_HEADER_PATH=${RAYLIB_HEADER_PATH}
+        -DRLGL_HEADER_PATH=${RLGL_HEADER_PATH}
+        -DRL_ALIAS_HEADER_PATH=${RL_ALIAS_HEADER_PATH}
+        -DRL_ALIAS_MODE=${RL_ALIAS_MODE}
+        -DRAYLIB_ALIAS_PREFIX=${RAYLIB_ALIAS_PREFIX}
+        -DRLGL_ALIAS_PREFIX=${RLGL_ALIAS_PREFIX}
+        -P ${ALIAS_SCRIPT_PATH}
         DEPENDS "${RAYLIB_HEADER_PATH}" "${RLGL_HEADER_PATH}" "${ALIAS_SCRIPT_PATH}"
         COMMENT "Generating rl_alias.h"
         VERBATIM

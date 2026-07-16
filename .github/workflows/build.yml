@@ -31,13 +31,13 @@ jobs:
         include:
           - os: ubuntu-latest
             install_deps: sudo apt-get update && sudo apt-get install -y build-essential cmake git libgl1-mesa-dev libwayland-bin libwayland-dev libx11-dev libxcursor-dev libxext-dev libxi-dev libxinerama-dev libxrandr-dev libxkbcommon-dev mesa-vulkan-drivers pkg-config xauth xdotool xvfb
-            cmake_args: -DRAYPLATE_ANGLE_PROVIDER=DOWNLOAD
+            cmake_args: -DGAME_ANGLE_PROVIDER=DOWNLOAD
           - os: macos-latest
             install_deps: ''
-            cmake_args: -DRAYPLATE_ANGLE_PROVIDER=DOWNLOAD
+            cmake_args: -DGAME_ANGLE_PROVIDER=DOWNLOAD
           - os: windows-latest
             install_deps: ''
-            cmake_args: -DRAYPLATE_ANGLE_PROVIDER=DOWNLOAD
+            cmake_args: -DGAME_ANGLE_PROVIDER=DOWNLOAD
 
     steps:
       - name: Checkout code
@@ -48,7 +48,7 @@ jobs:
         run: ${{ matrix.install_deps }}
 
       - name: Configure CMake
-        run: cmake -B build ${{ matrix.cmake_args }} -DRAYPLATE_WARNINGS_AS_ERRORS=ON -DRL_ALIAS_MODE="INLINE" -DRAYLIB_ALIAS_PREFIX="RLIB_" -DRLGL_ALIAS_PREFIX="RLGL_"
+        run: cmake -B build ${{ matrix.cmake_args }} -DGAME_WARNINGS_AS_ERRORS=ON -DRL_ALIAS_MODE="INLINE" -DRAYLIB_ALIAS_PREFIX="RLIB_" -DRLGL_ALIAS_PREFIX="RLGL_"
 
       - name: Build
         run: cmake --build build --config Release

@@ -3,15 +3,27 @@
 
 #include <rl_alias.h>
 
-typedef struct GAME_Game {
-  Vector2 trianglePositions[3];
-  int selectedVertex;
-  bool linesMode;
-  float handleRadius;
-} GAME_Game;
+#ifndef GAME_WINDOW_TITLE
+#define GAME_WINDOW_TITLE "My Game"
+#endif
 
-bool GAME_GameInit(GAME_Game *game);
-void GAME_GameUpdate(GAME_Game *game);
-void GAME_GameDraw(const GAME_Game *game);
+#ifndef GAME_WINDOW_WIDTH
+#define GAME_WINDOW_WIDTH 800
+#endif
+
+#ifndef GAME_WINDOW_HEIGHT
+#define GAME_WINDOW_HEIGHT 450
+#endif
+
+#ifndef GAME_TARGET_FPS
+#define GAME_TARGET_FPS 60
+#endif
+
+void GAME_GameInit(void);
+void GAME_GameRunFrame(void);
+static inline _Bool GAME_ShouldShutDown(void) {
+  return RLIB_WindowShouldClose();
+}
+void GAME_ShutDown(void);
 
 #endif

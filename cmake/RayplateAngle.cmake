@@ -1,18 +1,18 @@
 include_guard(GLOBAL)
 
-set(RAYPLATE_ANGLE_PROVIDER "DOWNLOAD" CACHE STRING
+set(GAME_ANGLE_PROVIDER "DOWNLOAD" CACHE STRING
     "ANGLE runtime provider: DOWNLOAD, LOCAL, or OFF")
-set_property(CACHE RAYPLATE_ANGLE_PROVIDER PROPERTY STRINGS DOWNLOAD LOCAL OFF)
-set(RAYPLATE_ANGLE_ROOT "" CACHE PATH
+set_property(CACHE GAME_ANGLE_PROVIDER PROPERTY STRINGS DOWNLOAD LOCAL OFF)
+set(GAME_ANGLE_ROOT "" CACHE PATH
     "Extracted ANGLE bundle or runtime directory used by the LOCAL provider")
-set(RAYPLATE_ANGLE_ARCHIVE "" CACHE FILEPATH
+set(GAME_ANGLE_ARCHIVE "" CACHE FILEPATH
     "Local rayplate ANGLE .tar.gz bundle used by the LOCAL provider")
-set(RAYPLATE_ANGLE_LOCAL_SHA256 "" CACHE STRING
-    "Optional SHA-256 for RAYPLATE_ANGLE_ARCHIVE")
-set(RAYPLATE_MACOS_ADHOC_SIGN ON CACHE BOOL
+set(GAME_ANGLE_LOCAL_SHA256 "" CACHE STRING
+    "Optional SHA-256 for GAME_ANGLE_ARCHIVE")
+set(GAME_MACOS_ADHOC_SIGN ON CACHE BOOL
     "Ad-hoc sign the macOS app bundle and its ANGLE libraries")
 
-function(_rayplate_angle_target_name output)
+function(_game_angle_target_name output)
     if(WIN32)
         set(platform windows)
     elseif(APPLE)
@@ -26,11 +26,11 @@ function(_rayplate_angle_target_name output)
     if(APPLE AND CMAKE_OSX_ARCHITECTURES)
         list(LENGTH CMAKE_OSX_ARCHITECTURES architecture_count)
         if(NOT architecture_count EQUAL 1)
-            string(TOUPPER "${RAYPLATE_ANGLE_PROVIDER}" provider)
+            string(TOUPPER "${GAME_ANGLE_PROVIDER}" provider)
             if(provider STREQUAL "DOWNLOAD")
                 message(FATAL_ERROR
                     "The DOWNLOAD provider requires a single macOS architecture; "
-                    "use separate arm64/x86_64 builds or RAYPLATE_ANGLE_PROVIDER=LOCAL with universal libraries")
+                    "use separate arm64/x86_64 builds or GAME_ANGLE_PROVIDER=LOCAL with universal libraries")
             endif()
             set(processor universal)
         else()
@@ -56,7 +56,7 @@ function(_rayplate_angle_target_name output)
     set(${output} "${platform}-${architecture}" PARENT_SCOPE)
 endfunction()
 
-function(_rayplate_find_unique_file output root filename required)
+function(_game_find_unique_file output root filename required)
     file(GLOB_RECURSE candidates LIST_DIRECTORIES false "${root}/*")
     set(matches "")
     foreach(candidate IN LISTS candidates)
@@ -79,7 +79,7 @@ function(_rayplate_find_unique_file output root filename required)
     endif()
 endfunction()
 
-function(_rayplate_extract_angle_archive archive archive_hash destination)
+function(_game_extract_angle_archive archive archive_hash destination)
     set(marker "${destination}/.rayplate-angle-sha256")
     set(extract_required TRUE)
     if(EXISTS "${marker}")
@@ -98,7 +98,7 @@ function(_rayplate_extract_angle_archive archive archive_hash destination)
     endif()
 endfunction()
 
-function(_rayplate_create_windows_import_library output dll target_name)
+function(_game_create_windows_import_library output dll target_name)
     if(NOT MSVC)
         # GNU-family Windows linkers support linking a DLL directly.
         set(${output} "${dll}" PARENT_SCOPE)
@@ -146,7 +146,7 @@ function(_rayplate_create_windows_import_library output dll target_name)
 
     execute_process(
         COMMAND "${CMAKE_AR}" /nologo "/def:${definition}" "/machine:${machine}"
-            "/out:${import_library}"
+        "/out:${import_library}"
         RESULT_VARIABLE library_result
         OUTPUT_VARIABLE library_output
         ERROR_VARIABLE library_error
@@ -158,21 +158,21 @@ function(_rayplate_create_windows_import_library output dll target_name)
     set(${output} "${import_library}" PARENT_SCOPE)
 endfunction()
 
-function(_rayplate_define_angle_gles_target gles_path target_name)
-    if(TARGET rayplate_angle_gles)
+function(_game_define_angle_gles_target gles_path target_name)
+    if(TARGET game_angle_gles)
         return()
     endif()
 
     set(link_input "${gles_path}")
     if(WIN32)
-        _rayplate_create_windows_import_library(link_input "${gles_path}" "${target_name}")
+        _game_create_windows_import_library(link_input "${gles_path}" "${target_name}")
     endif()
 
-    add_library(rayplate_angle_gles UNKNOWN IMPORTED GLOBAL)
-    set_target_properties(rayplate_angle_gles PROPERTIES IMPORTED_LOCATION "${link_input}")
+    add_library(game_angle_gles UNKNOWN IMPORTED GLOBAL)
+    set_target_properties(game_angle_gles PROPERTIES IMPORTED_LOCATION "${link_input}")
 endfunction()
 
-function(_rayplate_patch_glfw_angle_x11 glfw_target)
+function(_game_patch_glfw_angle_x11 glfw_target)
     if(NOT CMAKE_SYSTEM_NAME STREQUAL "Linux")
         return()
     endif()
@@ -253,59 +253,59 @@ function(_rayplate_patch_glfw_angle_x11 glfw_target)
     set_property(TARGET ${glfw_target} PROPERTY SOURCES "${updated_sources}")
 endfunction()
 
-function(rayplate_prepare_angle)
-    string(TOUPPER "${RAYPLATE_ANGLE_PROVIDER}" provider)
+function(game_prepare_angle)
+    string(TOUPPER "${GAME_ANGLE_PROVIDER}" provider)
     if(EMSCRIPTEN OR PLATFORM STREQUAL "Web")
-        set(RAYPLATE_ANGLE_ENABLED FALSE PARENT_SCOPE)
+        set(GAME_ANGLE_ENABLED FALSE PARENT_SCOPE)
         return()
     endif()
     if(provider STREQUAL "OFF")
-        set(RAYPLATE_ANGLE_ENABLED FALSE PARENT_SCOPE)
+        set(GAME_ANGLE_ENABLED FALSE PARENT_SCOPE)
         return()
     endif()
     if(NOT provider STREQUAL "DOWNLOAD" AND NOT provider STREQUAL "LOCAL")
-        message(FATAL_ERROR "RAYPLATE_ANGLE_PROVIDER must be DOWNLOAD, LOCAL, or OFF")
+        message(FATAL_ERROR "GAME_ANGLE_PROVIDER must be DOWNLOAD, LOCAL, or OFF")
     endif()
 
-    _rayplate_angle_target_name(target_name)
+    _game_angle_target_name(target_name)
     string(REPLACE "-" "_" target_key "${target_name}")
 
     if(provider STREQUAL "DOWNLOAD")
         include("${CMAKE_CURRENT_FUNCTION_LIST_DIR}/AngleArtifacts.cmake")
         set(default_bundle_name
-            "rayplate-angle-electron-${RAYPLATE_ANGLE_ELECTRON_VERSION}-${target_name}.tar.gz")
+            "rayplate-angle-electron-${GAME_ANGLE_ELECTRON_VERSION}-${target_name}.tar.gz")
         set(default_release_base
-            "https://github.com/${RAYPLATE_ANGLE_RELEASE_REPOSITORY}/releases/download/${RAYPLATE_ANGLE_RELEASE_TAG}")
-        set(hash_variable "RAYPLATE_ANGLE_BUNDLE_SHA256_${target_key}")
+            "https://github.com/${GAME_ANGLE_RELEASE_REPOSITORY}/releases/download/${GAME_ANGLE_RELEASE_TAG}")
+        set(hash_variable "GAME_ANGLE_BUNDLE_SHA256_${target_key}")
         set(default_hash "${${hash_variable}}")
 
-        set(RAYPLATE_ANGLE_BUNDLE_NAME "" CACHE STRING
+        set(GAME_ANGLE_BUNDLE_NAME "" CACHE STRING
             "Override the default ANGLE release bundle filename")
-        set(RAYPLATE_ANGLE_RELEASE_BASE_URL "" CACHE STRING
+        set(GAME_ANGLE_RELEASE_BASE_URL "" CACHE STRING
             "Override the default base URL containing the ANGLE release bundle")
-        set(RAYPLATE_ANGLE_BUNDLE_SHA256 "" CACHE STRING
+        set(GAME_ANGLE_BUNDLE_SHA256 "" CACHE STRING
             "Override the locked SHA-256 of the ANGLE release bundle")
 
         set(bundle_name "${default_bundle_name}")
         set(release_base "${default_release_base}")
         set(bundle_hash "${default_hash}")
-        if(RAYPLATE_ANGLE_BUNDLE_NAME)
-            set(bundle_name "${RAYPLATE_ANGLE_BUNDLE_NAME}")
+        if(GAME_ANGLE_BUNDLE_NAME)
+            set(bundle_name "${GAME_ANGLE_BUNDLE_NAME}")
         endif()
-        if(RAYPLATE_ANGLE_RELEASE_BASE_URL)
-            set(release_base "${RAYPLATE_ANGLE_RELEASE_BASE_URL}")
+        if(GAME_ANGLE_RELEASE_BASE_URL)
+            set(release_base "${GAME_ANGLE_RELEASE_BASE_URL}")
         endif()
-        if(RAYPLATE_ANGLE_BUNDLE_SHA256)
-            set(bundle_hash "${RAYPLATE_ANGLE_BUNDLE_SHA256}")
+        if(GAME_ANGLE_BUNDLE_SHA256)
+            set(bundle_hash "${GAME_ANGLE_BUNDLE_SHA256}")
         endif()
 
         string(LENGTH "${bundle_hash}" bundle_hash_length)
         if(NOT bundle_hash MATCHES "^[0-9a-fA-F]+$" OR
-           NOT bundle_hash_length EQUAL 64)
+            NOT bundle_hash_length EQUAL 64)
             message(FATAL_ERROR
                 "No valid locked ANGLE bundle hash exists for ${target_name}. "
                 "Publish the matching angle-electron release and update cmake/AngleArtifacts.cmake, "
-                "or configure RAYPLATE_ANGLE_PROVIDER=LOCAL.")
+                "or configure GAME_ANGLE_PROVIDER=LOCAL.")
         endif()
         string(TOLOWER "${bundle_hash}" bundle_hash)
 
@@ -327,32 +327,32 @@ function(rayplate_prepare_angle)
         endif()
 
         set(runtime_root "${CMAKE_BINARY_DIR}/_angle/${target_name}")
-        _rayplate_extract_angle_archive(
+        _game_extract_angle_archive(
             "${archive}" "${bundle_hash}" "${runtime_root}")
     else()
-        if(RAYPLATE_ANGLE_ARCHIVE)
-            if(NOT EXISTS "${RAYPLATE_ANGLE_ARCHIVE}")
-                message(FATAL_ERROR "RAYPLATE_ANGLE_ARCHIVE does not exist: ${RAYPLATE_ANGLE_ARCHIVE}")
+        if(GAME_ANGLE_ARCHIVE)
+            if(NOT EXISTS "${GAME_ANGLE_ARCHIVE}")
+                message(FATAL_ERROR "GAME_ANGLE_ARCHIVE does not exist: ${GAME_ANGLE_ARCHIVE}")
             endif()
-            file(SHA256 "${RAYPLATE_ANGLE_ARCHIVE}" local_archive_hash)
-            string(TOLOWER "${RAYPLATE_ANGLE_LOCAL_SHA256}" expected_local_archive_hash)
+            file(SHA256 "${GAME_ANGLE_ARCHIVE}" local_archive_hash)
+            string(TOLOWER "${GAME_ANGLE_LOCAL_SHA256}" expected_local_archive_hash)
             if(expected_local_archive_hash AND
-               NOT local_archive_hash STREQUAL expected_local_archive_hash)
+                NOT local_archive_hash STREQUAL expected_local_archive_hash)
                 message(FATAL_ERROR
-                    "Local ANGLE archive checksum mismatch: expected ${RAYPLATE_ANGLE_LOCAL_SHA256}, "
+                    "Local ANGLE archive checksum mismatch: expected ${GAME_ANGLE_LOCAL_SHA256}, "
                     "got ${local_archive_hash}")
             endif()
             set(runtime_root "${CMAKE_BINARY_DIR}/_angle/local-${target_name}")
-            _rayplate_extract_angle_archive(
-                "${RAYPLATE_ANGLE_ARCHIVE}" "${local_archive_hash}" "${runtime_root}")
-        elseif(RAYPLATE_ANGLE_ROOT)
-            if(NOT IS_DIRECTORY "${RAYPLATE_ANGLE_ROOT}")
-                message(FATAL_ERROR "RAYPLATE_ANGLE_ROOT is not a directory: ${RAYPLATE_ANGLE_ROOT}")
+            _game_extract_angle_archive(
+                "${GAME_ANGLE_ARCHIVE}" "${local_archive_hash}" "${runtime_root}")
+        elseif(GAME_ANGLE_ROOT)
+            if(NOT IS_DIRECTORY "${GAME_ANGLE_ROOT}")
+                message(FATAL_ERROR "GAME_ANGLE_ROOT is not a directory: ${GAME_ANGLE_ROOT}")
             endif()
-            set(runtime_root "${RAYPLATE_ANGLE_ROOT}")
+            set(runtime_root "${GAME_ANGLE_ROOT}")
         else()
             message(FATAL_ERROR
-                "The LOCAL provider requires RAYPLATE_ANGLE_ROOT or RAYPLATE_ANGLE_ARCHIVE")
+                "The LOCAL provider requires GAME_ANGLE_ROOT or GAME_ANGLE_ARCHIVE")
         endif()
     endif()
 
@@ -367,15 +367,15 @@ function(rayplate_prepare_angle)
         set(gles_name libGLESv2.so)
     endif()
 
-    _rayplate_find_unique_file(egl_path "${runtime_root}" "${egl_name}" TRUE)
-    _rayplate_find_unique_file(gles_path "${runtime_root}" "${gles_name}" TRUE)
-    _rayplate_find_unique_file(d3dcompiler_path "${runtime_root}" "d3dcompiler_47.dll" FALSE)
-    _rayplate_find_unique_file(vulkan_loader_path "${runtime_root}" "libvulkan.so.1" FALSE)
-    _rayplate_find_unique_file(electron_license "${runtime_root}" "ELECTRON-LICENSE" FALSE)
-    _rayplate_find_unique_file(chromium_license "${runtime_root}" "LICENSES.chromium.html" FALSE)
-    _rayplate_find_unique_file(angle_manifest "${runtime_root}" "manifest.json" FALSE)
+    _game_find_unique_file(egl_path "${runtime_root}" "${egl_name}" TRUE)
+    _game_find_unique_file(gles_path "${runtime_root}" "${gles_name}" TRUE)
+    _game_find_unique_file(d3dcompiler_path "${runtime_root}" "d3dcompiler_47.dll" FALSE)
+    _game_find_unique_file(vulkan_loader_path "${runtime_root}" "libvulkan.so.1" FALSE)
+    _game_find_unique_file(electron_license "${runtime_root}" "ELECTRON-LICENSE" FALSE)
+    _game_find_unique_file(chromium_license "${runtime_root}" "LICENSES.chromium.html" FALSE)
+    _game_find_unique_file(angle_manifest "${runtime_root}" "manifest.json" FALSE)
 
-    _rayplate_define_angle_gles_target("${gles_path}" "${target_name}")
+    _game_define_angle_gles_target("${gles_path}" "${target_name}")
 
     # raylib's desktop backend requests EGL for an OpenGL ES build. Force its
     # bundled GLFW so we can name the exact ANGLE libraries it must dlopen.
@@ -384,23 +384,23 @@ function(rayplate_prepare_angle)
     set(GRAPHICS "GRAPHICS_API_OPENGL_ES3" CACHE STRING "raylib graphics API" FORCE)
     set(USE_EXTERNAL_GLFW "OFF" CACHE STRING "Use raylib's bundled GLFW" FORCE)
 
-    set(RAYPLATE_ANGLE_ENABLED TRUE PARENT_SCOPE)
-    set(RAYPLATE_ANGLE_TARGET "${target_name}" PARENT_SCOPE)
-    set(RAYPLATE_ANGLE_EGL "${egl_path}" PARENT_SCOPE)
-    set(RAYPLATE_ANGLE_GLES "${gles_path}" PARENT_SCOPE)
-    set(RAYPLATE_ANGLE_D3DCOMPILER "${d3dcompiler_path}" PARENT_SCOPE)
-    set(RAYPLATE_ANGLE_VULKAN_LOADER "${vulkan_loader_path}" PARENT_SCOPE)
-    set(RAYPLATE_ANGLE_ELECTRON_LICENSE "${electron_license}" PARENT_SCOPE)
-    set(RAYPLATE_ANGLE_CHROMIUM_LICENSE "${chromium_license}" PARENT_SCOPE)
-    set(RAYPLATE_ANGLE_MANIFEST "${angle_manifest}" PARENT_SCOPE)
+    set(GAME_ANGLE_ENABLED TRUE PARENT_SCOPE)
+    set(GAME_ANGLE_TARGET "${target_name}" PARENT_SCOPE)
+    set(GAME_ANGLE_EGL "${egl_path}" PARENT_SCOPE)
+    set(GAME_ANGLE_GLES "${gles_path}" PARENT_SCOPE)
+    set(GAME_ANGLE_D3DCOMPILER "${d3dcompiler_path}" PARENT_SCOPE)
+    set(GAME_ANGLE_VULKAN_LOADER "${vulkan_loader_path}" PARENT_SCOPE)
+    set(GAME_ANGLE_ELECTRON_LICENSE "${electron_license}" PARENT_SCOPE)
+    set(GAME_ANGLE_CHROMIUM_LICENSE "${chromium_license}" PARENT_SCOPE)
+    set(GAME_ANGLE_MANIFEST "${angle_manifest}" PARENT_SCOPE)
 endfunction()
 
-function(rayplate_configure_angle_raylib raylib_target)
-    if(NOT RAYPLATE_ANGLE_ENABLED)
+function(game_configure_angle_raylib raylib_target)
+    if(NOT GAME_ANGLE_ENABLED)
         return()
     endif()
-    get_filename_component(egl_name "${RAYPLATE_ANGLE_EGL}" NAME)
-    get_filename_component(gles_name "${RAYPLATE_ANGLE_GLES}" NAME)
+    get_filename_component(egl_name "${GAME_ANGLE_EGL}" NAME)
+    get_filename_component(gles_name "${GAME_ANGLE_GLES}" NAME)
     if(APPLE)
         set(egl_runtime_name "@executable_path/../Frameworks/${egl_name}")
         set(gles_runtime_name "@executable_path/../Frameworks/${gles_name}")
@@ -419,7 +419,7 @@ function(rayplate_configure_angle_raylib raylib_target)
         "_GLFW_GLESV2_LIBRARY=\"${gles_runtime_name}\""
     )
     if(TARGET glfw)
-        _rayplate_patch_glfw_angle_x11(glfw)
+        _game_patch_glfw_angle_x11(glfw)
         target_compile_definitions(glfw PRIVATE
             "_GLFW_EGL_LIBRARY=\"${egl_runtime_name}\""
             "_GLFW_GLESV2_LIBRARY=\"${gles_runtime_name}\""
@@ -429,24 +429,24 @@ function(rayplate_configure_angle_raylib raylib_target)
     endif()
 endfunction()
 
-function(rayplate_configure_angle_application application_target)
-    if(NOT RAYPLATE_ANGLE_ENABLED)
+function(game_configure_angle_application application_target)
+    if(NOT GAME_ANGLE_ENABLED)
         return()
     endif()
 
-    target_compile_definitions(${application_target} PRIVATE RAYPLATE_ANGLE_ENABLED=1)
+    target_compile_definitions(${application_target} PRIVATE GAME_ANGLE_ENABLED=1)
     target_include_directories(${application_target} PRIVATE
         "${raylib_SOURCE_DIR}/src/external/glfw/include")
     # rlgl's ES3 implementation calls GLES symbols directly. Keep ANGLE after
     # the raylib static archive and before raylib's host OpenGL dependencies.
-    target_link_libraries(${application_target} PRIVATE rayplate_angle_gles)
+    target_link_libraries(${application_target} PRIVATE game_angle_gles)
 
-    set(runtime_files "${RAYPLATE_ANGLE_EGL}" "${RAYPLATE_ANGLE_GLES}")
-    if(RAYPLATE_ANGLE_D3DCOMPILER)
-        list(APPEND runtime_files "${RAYPLATE_ANGLE_D3DCOMPILER}")
+    set(runtime_files "${GAME_ANGLE_EGL}" "${GAME_ANGLE_GLES}")
+    if(GAME_ANGLE_D3DCOMPILER)
+        list(APPEND runtime_files "${GAME_ANGLE_D3DCOMPILER}")
     endif()
-    if(RAYPLATE_ANGLE_VULKAN_LOADER)
-        list(APPEND runtime_files "${RAYPLATE_ANGLE_VULKAN_LOADER}")
+    if(GAME_ANGLE_VULKAN_LOADER)
+        list(APPEND runtime_files "${GAME_ANGLE_VULKAN_LOADER}")
     endif()
     if(APPLE)
         set(bundle_directory "$<TARGET_BUNDLE_DIR:${application_target}>")
@@ -463,15 +463,15 @@ function(rayplate_configure_angle_application application_target)
     foreach(runtime_file IN LISTS runtime_files)
         add_custom_command(TARGET ${application_target} POST_BUILD
             COMMAND ${CMAKE_COMMAND} -E copy_if_different
-                "${runtime_file}" "${runtime_destination}"
+            "${runtime_file}" "${runtime_destination}"
             VERBATIM)
     endforeach()
 
     set(license_files "")
     foreach(license_file IN ITEMS
-            "${RAYPLATE_ANGLE_ELECTRON_LICENSE}"
-            "${RAYPLATE_ANGLE_CHROMIUM_LICENSE}"
-            "${RAYPLATE_ANGLE_MANIFEST}")
+        "${GAME_ANGLE_ELECTRON_LICENSE}"
+        "${GAME_ANGLE_CHROMIUM_LICENSE}"
+        "${GAME_ANGLE_MANIFEST}")
         if(license_file)
             list(APPEND license_files "${license_file}")
         endif()
@@ -479,13 +479,13 @@ function(rayplate_configure_angle_application application_target)
     if(license_files)
         add_custom_command(TARGET ${application_target} POST_BUILD
             COMMAND ${CMAKE_COMMAND} -E make_directory
-                "${license_destination}"
+            "${license_destination}"
             VERBATIM)
         foreach(license_file IN LISTS license_files)
             add_custom_command(TARGET ${application_target} POST_BUILD
                 COMMAND ${CMAKE_COMMAND} -E copy_if_different
-                    "${license_file}"
-                    "${license_destination}"
+                "${license_file}"
+                "${license_destination}"
                 VERBATIM)
         endforeach()
     endif()
@@ -495,27 +495,27 @@ function(rayplate_configure_angle_application application_target)
             BUILD_RPATH "@executable_path/../Frameworks")
         set_property(TARGET ${application_target} APPEND PROPERTY
             INSTALL_RPATH "@executable_path/../Frameworks")
-        get_filename_component(gles_name "${RAYPLATE_ANGLE_GLES}" NAME)
+        get_filename_component(gles_name "${GAME_ANGLE_GLES}" NAME)
         add_custom_command(TARGET ${application_target} POST_BUILD
             COMMAND "${CMAKE_INSTALL_NAME_TOOL}"
-                -change "./${gles_name}"
-                "@executable_path/../Frameworks/${gles_name}"
-                "$<TARGET_FILE:${application_target}>"
+            -change "./${gles_name}"
+            "@executable_path/../Frameworks/${gles_name}"
+            "$<TARGET_FILE:${application_target}>"
             VERBATIM)
 
-        if(RAYPLATE_MACOS_ADHOC_SIGN)
-            find_program(rayplate_codesign codesign REQUIRED)
+        if(GAME_MACOS_ADHOC_SIGN)
+            find_program(game_codesign codesign REQUIRED)
             foreach(runtime_file IN LISTS runtime_files)
                 get_filename_component(runtime_name "${runtime_file}" NAME)
                 add_custom_command(TARGET ${application_target} POST_BUILD
-                    COMMAND "${rayplate_codesign}" --force --sign -
-                        "${runtime_destination}/${runtime_name}"
+                    COMMAND "${game_codesign}" --force --sign -
+                    "${runtime_destination}/${runtime_name}"
                     VERBATIM)
             endforeach()
             add_custom_command(TARGET ${application_target} POST_BUILD
-                COMMAND "${rayplate_codesign}" --force --sign - "${bundle_directory}"
-                COMMAND "${rayplate_codesign}" --verify --deep --strict --verbose=2
-                    "${bundle_directory}"
+                COMMAND "${game_codesign}" --force --sign - "${bundle_directory}"
+                COMMAND "${game_codesign}" --verify --deep --strict --verbose=2
+                "${bundle_directory}"
                 VERBATIM)
         endif()
     elseif(UNIX)

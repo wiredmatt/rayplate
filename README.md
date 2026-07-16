@@ -9,27 +9,21 @@ Rayplate is a raylib 6.0 CMake template with runtime-selectable native graphics 
 | Linux | `vulkan`, `opengl` | Vulkan |
 | macOS | `metal`, `opengl` | Metal |
 
-The desktop build downloads a small, SHA-256-locked ANGLE runtime bundle produced from Electron. Web builds continue to use Emscripten/WebGL without ANGLE.
+The desktop build downloads a SHA-256-locked ANGLE runtime bundle produced from Electron. Web builds use Emscripten and WebGL.
 
 ## Use this template
 
-Set the four project identity values at the top of `CMakeLists.txt` before you
-start building your game:
+Set the four project identity values at the top of `CMakeLists.txt` before you start building your game:
 
 ```cmake
-set(RAYPLATE_TARGET_NAME "my_game" CACHE STRING "Executable and build target name")
-set(RAYPLATE_DISPLAY_NAME "My Game" CACHE STRING "Human-readable application name")
-set(RAYPLATE_VERSION "0.1.0" CACHE STRING "Application version")
-set(RAYPLATE_BUNDLE_IDENTIFIER "com.example.my-game" CACHE STRING
-    "Reverse-DNS application bundle identifier")
+set(GAME_BIN_NAME "my_game" CACHE STRING "Executable and build target name")
+set(GAME_WINDOW_TITLE "My Game" CACHE STRING "Human-readable application name")
+set(GAME_VERSION "0.1.0" CACHE STRING "Application version")
+set(GAME_BUNDLE_IDENTIFIER "com.example.my-game" CACHE STRING "application bundle identifier")
 ```
 
-The target name controls native executable, macOS bundle, and web artifact
-filenames. The display name, version, and bundle identifier configure platform
-metadata. Change `GAME_DISPLAY_NAME` in `src/main.c` to set the sample window
-title, then replace the sample game code there. The bundled release workflow intentionally retains
-its existing `my_game` artifact paths, so update those paths separately if you
-change `RAYPLATE_TARGET_NAME` and still use that workflow.
+The target name controls native executable, macOS bundle, and web artifact filenames. The display name, version, and bundle identifier configure platform metadata. Change `GAME_WINDOW_TITLE` in `src/main.c` to set the sample window title, then replace the sample game code there. The bundled release workflow intentionally retains its existing `my_game` artifact paths, so update those paths separately if you
+change `GAME_BIN_NAME` and still use that workflow.
 
 ```c
 #include "graphics_api.h"
@@ -107,26 +101,20 @@ cmake --build --preset desktop-debug --parallel
 ctest --preset desktop-debug
 ```
 
-Run the configure and build commands once after cloning. They generate the
-compilation database used by code editors. The included `.clangd` points clangd
-at `build/desktop-debug`; reload
-the editor after the first build if it was already open.
+Run the configure and build commands once after cloning. They generate the compilation database used by code editors. The included `.clangd` points clangd at `build/desktop-debug`; reload the editor after the first build if it was already open.
 
 `desktop-release` builds an optimized desktop application,
 `desktop-sanitize` enables runtime memory and undefined-behavior checks, and
-`desktop-no-angle` is useful when you want raylib's native OpenGL path. These
-presets use Ninja; the equivalent generator-independent commands remain
-available:
+`desktop-no-angle` is useful when you want raylib's native OpenGL path. 
+
+These presets use Ninja; the equivalent generator-independent commands remain available:
 
 ```sh
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build --parallel
 ```
 
-The ANGLE libraries, Electron's matching Linux Vulkan loader, and their
-license/provenance manifest are staged automatically. Linux and Windows place
-them beside the executable; macOS places them in the standard locations inside
-`build/my_game.app`.
+The ANGLE libraries, Electron's matching Linux Vulkan loader, and their license/provenance manifest are staged automatically. Linux and Windows place them beside the executable; macOS places them in the standard locations inside `build/my_game.app`.
 
 Electron's Windows ARM64 ANGLE build does not contain the WGL/OpenGL renderer, so that one architecture intentionally omits `opengl`. The packaging script fails closed if an Electron update lacks any backend expected for its target.
 
@@ -169,20 +157,7 @@ my_game.app/
     └── Resources/angle-licenses/
 ```
 
-CMake ad-hoc signs the ANGLE libraries and then the complete application
-bundle. This seals the bundle and lets macOS treat it as one application, but
-it does not claim an Apple-verified developer identity and costs nothing.
-
-For an application downloaded from GitHub, the first launch may still be
-blocked by Gatekeeper. Control-click (or right-click) `my_game.app`, choose
-**Open**, then confirm **Open** once. macOS remembers that approval for the
-application; users should not need to approve its individual dynamic
-libraries. The release ZIP is created on macOS with `ditto` so executable
-permissions, bundle metadata, and code signatures survive download.
-
-Set `RAYPLATE_MACOS_ADHOC_SIGN=OFF` only when another packaging system will
-sign the finished bundle itself. The default bundle identity and version can
-be changed with `RAYPLATE_BUNDLE_IDENTIFIER` and `RAYPLATE_VERSION`.
+Set `GAME_MACOS_ADHOC_SIGN=OFF` only when another packaging system will sign the finished bundle itself. The default bundle identity and version can be changed with `GAME_BUNDLE_IDENTIFIER` and `GAME_VERSION`.
 
 ## Fully local or offline ANGLE
 
@@ -192,8 +167,8 @@ To use an already extracted runtime without any ANGLE network access:
 
 ```sh
 cmake -S . -B build/local-angle \
-  -DRAYPLATE_ANGLE_PROVIDER=LOCAL \
-  -DRAYPLATE_ANGLE_ROOT=/absolute/path/to/extracted-angle
+  -DGAME_ANGLE_PROVIDER=LOCAL \
+  -DGAME_ANGLE_ROOT=/absolute/path/to/extracted-angle
 cmake --build build/local-angle --parallel
 ```
 
@@ -203,20 +178,18 @@ To use a local Rayplate bundle:
 
 ```sh
 cmake -S . -B build/local-angle \
-  -DRAYPLATE_ANGLE_PROVIDER=LOCAL \
-  -DRAYPLATE_ANGLE_ARCHIVE=/absolute/path/to/rayplate-angle-electron-43.1.1-linux-x64.tar.gz \
-  -DRAYPLATE_ANGLE_LOCAL_SHA256=<sha256>
+  -DGAME_ANGLE_PROVIDER=LOCAL \
+  -DGAME_ANGLE_ARCHIVE=/absolute/path/to/rayplate-angle-electron-43.1.1-linux-x64.tar.gz \
+  -DGAME_ANGLE_LOCAL_SHA256=<sha256>
 cmake --build build/local-angle --parallel
 ```
 
-The local checksum is optional for a trusted file but recommended. No vcpkg,
-Python, or Electron installation is required for either local ANGLE mode. For a
-completely network-free build, also provide a local raylib checkout:
+The local checksum is optional for a trusted file but recommended. No vcpkg, Python, or Electron installation is required for either local ANGLE mode. For a completely network-free build, also provide a local raylib checkout:
 
 ```sh
 cmake -S . -B build/offline \
-  -DRAYPLATE_ANGLE_PROVIDER=LOCAL \
-  -DRAYPLATE_ANGLE_ARCHIVE=/offline/rayplate-angle-electron-43.1.1-linux-x64.tar.gz \
+  -DGAME_ANGLE_PROVIDER=LOCAL \
+  -DGAME_ANGLE_ARCHIVE=/offline/rayplate-angle-electron-43.1.1-linux-x64.tar.gz \
   -DFETCHCONTENT_SOURCE_DIR_RAYLIB=/offline/raylib
 ```
 
@@ -224,7 +197,7 @@ To disable ANGLE and use an ordinary raylib platform configuration:
 
 ```sh
 cmake -S . -B build/no-angle \
-  -DRAYPLATE_ANGLE_PROVIDER=OFF \
+  -DGAME_ANGLE_PROVIDER=OFF \
   -DPLATFORM=Desktop
 cmake --build build/no-angle --parallel
 ```
@@ -282,14 +255,8 @@ The integrity layers are:
 - CMake pins the complete bundle hash in source control.
 - GitHub's Sigstore-backed attestation identifies the exact workflow and repository that produced the bundle.
 
-A checksum alone cannot prove software is benign. The stronger
-malware/supply-chain property here is provenance: the ANGLE packaging workflow
-performs no compilation or binary rewriting, and its manifest records files
-extracted byte-for-byte from the official Electron release. When producing a
-macOS application, CMake verifies that source bundle first and then ad-hoc
-signs its staged dylib copies; that necessarily changes their Mach-O signature
-metadata. The included manifest continues to identify and hash the verified
-pre-signing Electron inputs.
+A checksum alone cannot prove software is benign. The stronger malware/supply-chain property here is provenance: the ANGLE packaging workflow
+performs no compilation or binary rewriting, and its manifest records files extracted byte-for-byte from the official Electron release. When producing a macOS application, CMake verifies that source bundle first and then ad-hoc signs its staged dylib copies; that necessarily changes their Mach-O signature metadata. The included manifest continues to identify and hash the verified pre-signing Electron inputs.
 
 ## Build for web
 
@@ -306,8 +273,11 @@ This produces `my_game.html`, `my_game.js`, and `my_game.wasm`. Serve the direct
 
 The generated `rl_alias.h` includes both API layers:
 
-- raylib functions use `RAYLIB_ALIAS_PREFIX` (`RLIB_` by default), for example `RLIB_LoadShader`.
-- rlgl functions use `RLGL_ALIAS_PREFIX` (`RLGL_` by default), for example `RLGL_LoadShader`.
+- raylib functions and public value constants use `RAYLIB_ALIAS_PREFIX` (`RLIB_`
+  by default), for example `RLIB_LoadShader`, `RLIB_DARKGRAY`, and
+  `RLIB_KEY_SPACE`.
+- rlgl functions and constants use `RLGL_ALIAS_PREFIX` (`RLGL_` by default),
+  for example `RLGL_LoadShader` and `RLGL_TRIANGLES`.
 
 Select inline wrappers, macros, or disable aliases with `RL_ALIAS_MODE`:
 
@@ -330,15 +300,14 @@ When aliases are disabled, application source must include `raylib.h`/`rlgl.h` a
 ## Build diagnostics
 
 Application code is compiled as portable C99 with compiler extensions disabled.
-Warnings are enabled at `/W4` on MSVC and `-Wall -Wextra -Wpedantic` on GCC and
-Clang. To make those application warnings fatal (as CI does), configure with:
+Warnings are enabled at `/W4` on MSVC and `-Wall -Wextra -Wpedantic` on GCC and Clang. 
+To make those application warnings fatal (as CI does), configure with:
 
 ```sh
-cmake -S . -B build -DRAYPLATE_WARNINGS_AS_ERRORS=ON
+cmake -S . -B build -DGAME_WARNINGS_AS_ERRORS=ON
 ```
 
-AddressSanitizer can catch memory errors during local debug builds. GCC and
-Clang builds also enable UndefinedBehaviorSanitizer:
+AddressSanitizer can catch memory errors during local debug builds. GCC and Clang builds also enable UndefinedBehaviorSanitizer:
 
 ```sh
 cmake --preset desktop-sanitize
@@ -346,10 +315,8 @@ cmake --build --preset desktop-sanitize --parallel
 ctest --preset desktop-sanitize
 ```
 
-Sanitizers are intended for native development builds, not WebAssembly or
-release packaging. Source formatting follows `.clang-format` and basic editor
-behavior follows `.editorconfig`; check C formatting with
-`clang-format --dry-run --Werror src/*.c src/*.h`.
+Sanitizers are intended for native development builds, not WebAssembly or release packaging.
+Source formatting follows `.clang-format` and basic editor behavior follows `.editorconfig`; check C formatting with `clang-format --dry-run --Werror src/*.c src/*.h`.
 
 ## Application releases
 
@@ -361,5 +328,3 @@ git push origin v1.2.3
 ```
 
 Tags containing `-alpha`, `-beta`, or `-rc` are marked as prereleases.
-macOS releases are ZIP archives containing the complete ad-hoc-signed
-`my_game.app` rather than loose executables and dynamic libraries.

@@ -142,7 +142,72 @@ function(generate_api_aliases API_NAME HEADER_PATH ALIAS_PREFIX)
     file(APPEND "${RL_ALIAS_HEADER_PATH}" "\n")
 endfunction()
 
+function(generate_constant_aliases API_NAME HEADER_PATH ALIAS_PREFIX STRIP_RL_PREFIX)
+    file(APPEND "${RL_ALIAS_HEADER_PATH}" "// ${API_NAME} constant aliases (${ALIAS_PREFIX}*)\n")
+
+    # Object-like macros are values only when their original declaration is
+    # active. Preserve that behavior instead of making conditional platform or
+    # feature macros appear defined on every build.
+    file(STRINGS "${HEADER_PATH}" macro_lines
+        REGEX "^[ \t]*#define[ \t]+[A-Z][A-Z0-9_]*([ \t]|$)")
+    set(macro_names "")
+    foreach(line IN LISTS macro_lines)
+        string(REGEX MATCH "#define[ \t]+([A-Z][A-Z0-9_]*)" _ "${line}")
+        set(constant_name "${CMAKE_MATCH_1}")
+
+        # Header guards, export annotations, and cross-module type guards are
+        # preprocessor machinery rather than values used at API call sites.
+        if(constant_name STREQUAL "RAYLIB_H" OR
+           constant_name STREQUAL "RLGL_H" OR
+           constant_name STREQUAL "RLAPI" OR
+           constant_name MATCHES "^RL_.*_TYPE$")
+            continue()
+        endif()
+
+        list(APPEND macro_names "${constant_name}")
+        set(suffix "${constant_name}")
+        if(STRIP_RL_PREFIX AND suffix MATCHES "^RL_(.+)$")
+            set(suffix "${CMAKE_MATCH_1}")
+        endif()
+        set(alias_name "${ALIAS_PREFIX}${suffix}")
+        if(NOT alias_name STREQUAL constant_name)
+            file(APPEND "${RL_ALIAS_HEADER_PATH}"
+                "#if defined(${constant_name})\n"
+                "#define ${alias_name} ${constant_name}\n"
+                "#endif\n")
+        endif()
+    endforeach()
+
+    # Enum members are identifiers rather than preprocessor macros, so alias
+    # them directly. This covers keys, mouse buttons, flags, formats, and the
+    # other public value sets declared by raylib and rlgl.
+    file(STRINGS "${HEADER_PATH}" enum_lines
+        REGEX "^[ \t]+[A-Z][A-Z0-9_]*[ \t]*(=[^,]+)?[,]?[ \t]*(//.*)?$")
+    foreach(line IN LISTS enum_lines)
+        string(REGEX MATCH "^[ \t]+([A-Z][A-Z0-9_]*)" _ "${line}")
+        set(constant_name "${CMAKE_MATCH_1}")
+        list(FIND macro_names "${constant_name}" macro_index)
+        if(NOT macro_index EQUAL -1)
+            continue()
+        endif()
+
+        set(suffix "${constant_name}")
+        if(STRIP_RL_PREFIX AND suffix MATCHES "^RL_(.+)$")
+            set(suffix "${CMAKE_MATCH_1}")
+        endif()
+        set(alias_name "${ALIAS_PREFIX}${suffix}")
+        if(NOT alias_name STREQUAL constant_name)
+            file(APPEND "${RL_ALIAS_HEADER_PATH}"
+                "#define ${alias_name} ${constant_name}\n")
+        endif()
+    endforeach()
+
+    file(APPEND "${RL_ALIAS_HEADER_PATH}" "\n")
+endfunction()
+
+generate_constant_aliases("raylib" "${RAYLIB_HEADER_PATH}" "${RAYLIB_ALIAS_PREFIX}" TRUE)
 generate_api_aliases("raylib" "${RAYLIB_HEADER_PATH}" "${RAYLIB_ALIAS_PREFIX}")
+generate_constant_aliases("rlgl" "${RLGL_HEADER_PATH}" "${RLGL_ALIAS_PREFIX}" TRUE)
 generate_api_aliases("rlgl" "${RLGL_HEADER_PATH}" "${RLGL_ALIAS_PREFIX}")
 
 file(APPEND "${RL_ALIAS_HEADER_PATH}" "#endif // _RL_ALIAS_H\n")
