@@ -75,7 +75,9 @@ jobs:
               window_id=""
 
               for attempt in {1..100}; do
-                mapfile -t window_ids < <(xdotool search --name "basic window" 2>/dev/null)
+                mapfile -t window_ids < <(
+                  xdotool search --onlyvisible --pid "$app_pid" 2>/dev/null
+                )
                 if (( ${#window_ids[@]} > 0 )); then
                   window_id="${window_ids[0]}"
                   break
@@ -88,6 +90,7 @@ jobs:
               done
 
               if [[ -z "$window_id" ]]; then
+                echo "Timed out waiting for a visible window from PID $app_pid" >&2
                 kill "$app_pid" 2>/dev/null || true
                 wait "$app_pid" 2>/dev/null || true
                 exit 2
