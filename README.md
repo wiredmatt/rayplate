@@ -1,6 +1,6 @@
 # Rayplate
 
-Rayplate is a raylib 6.0 CMake template with runtime-selectable native graphics backends through [ANGLE](https://chromium.googlesource.com/angle/angle). Application code continues to use raylib and rlgl normally; raylib targets OpenGL ES 3 while ANGLE translates it to the selected platform API.
+Rayplate is a raylib 6.0 CMake template with selectable native graphics backends through [ANGLE](https://chromium.googlesource.com/angle/angle). Application code continues to use raylib and rlgl normally, raylib targets OpenGL ES 3 while ANGLE translates it to the selected platform API.
 
 | Platform | Launch values | Default |
 | --- | --- | --- |
@@ -8,19 +8,19 @@ Rayplate is a raylib 6.0 CMake template with runtime-selectable native graphics 
 | Windows ARM64 | `directx`, `vulkan` | DirectX 11 |
 | Linux | `vulkan`, `opengl` | Vulkan |
 | macOS | `metal`, `opengl` | Metal |
+| Web | `webgl` | WebGL |
 
-The desktop build downloads a SHA-256-locked ANGLE runtime bundle produced from Electron. Web builds use Emscripten and WebGL.
+The desktop build downloads an ANGLE runtime bundle produced from Electron builds.
 
 ## Use this template
 
-Set the four project identity values at the top of `CMakeLists.txt` before you start building your game:
+Set the following values at the top of `CMakeLists.txt` before you start building your game:
 
 ```cmake
 set(GAME_BIN_NAME "my_game" CACHE STRING "Executable and build target name")
 set(GAME_WINDOW_TITLE "My Game" CACHE STRING "Human-readable application name")
 set(GAME_VERSION "0.1.0" CACHE STRING "Application version")
-set(GAME_BUNDLE_IDENTIFIER "io.github.example.my-game" CACHE STRING
-    "Reverse-DNS application bundle identifier")
+set(GAME_BUNDLE_IDENTIFIER "io.github.example.my-game" CACHE STRING "application bundle identifier")
 ```
 
 The target name controls native executable, macOS bundle, and web artifact
@@ -44,8 +44,8 @@ void GAME_GameInit(void) {
 
 void GAME_GameRunFrame(void) {
   RLIB_BeginDrawing();
-  RLIB_ClearBackground(RLIB_RAYWHITE);
-  RLIB_DrawText("Hello from raylib through ANGLE", 120, 210, 20, RLIB_DARKGRAY);
+    RLIB_ClearBackground(RLIB_RAYWHITE);
+    RLIB_DrawText("Hello from raylib through ANGLE", 120, 210, 20, RLIB_DARKGRAY);
   RLIB_EndDrawing();
 }
 
@@ -55,10 +55,7 @@ void GAME_ShutDown(void) { RLIB_CloseWindow(); }
 With the default alias configuration, raylib functions and public constants use
 the `RLIB_` prefix, while rlgl functions and constants use `RLGL_`. Public
 raylib types such as `Vector2`, `Color`, and `Texture2D` retain their original
-names. If you customize the bootstrap code, its current native ANGLE interface
-is `ANGLE_Configure`, `ANGLE_ConfigureResult`, `ANGLE_CONFIGURE_*`, and
-`ANGLE_LogRenderer` from `angle_cfg.h`; the former `GraphicsApi*` names no
-longer exist.
+names.
 
 ## How the graphics stack works
 
@@ -78,7 +75,7 @@ Normal raylib drawing APIs and rlgl calls remain available. Custom raw shaders m
 
 ## Build
 
-raylib 6.0 requires CMake 3.25 or newer. CMake downloads both the pinned raylib source and the much smaller prepackaged ANGLE runtime.
+raylib 6.0 requires CMake 3.25 or newer. CMake downloads both the pinned raylib source and the prepackaged ANGLE runtime.
 
 On Debian or Ubuntu, install the desktop window-system dependencies:
 
@@ -152,7 +149,7 @@ open build/desktop-debug/my_game.app --args --graphics-api=metal
 
 `--graphics-api value` is also accepted. The startup log reports both the requested backend and ANGLE's actual `GL_RENDERER` string.
 
-For a Steam-native selection popup, create one Steamworks launch option per supported value and pass the corresponding argument. Steam owns that popup; the executable only needs the command-line interface above.
+For a Steam-native selection popup, create one Steamworks launch option per supported value and pass the corresponding argument.
 
 ## macOS application bundle and Gatekeeper
 
@@ -240,7 +237,7 @@ Python 3.10 or newer is required only to create bundles, not to build or run the
 
 ## Publish a new ANGLE runtime release
 
-The manually triggered [`package-angle.yml`](.github/workflows/package-angle.yml) workflow packages all six targets concurrently, creates `SHA256SUMS`, generates signed GitHub/Sigstore provenance, and publishes an `angle-electron-v<version>` release. It refuses to replace an existing version.
+The manually triggered [`package-angle.yml`](.github/workflows/package-angle.yml) workflow packages all targets concurrently, creates `SHA256SUMS`, generates signed GitHub/Sigstore provenance, and publishes an `angle-electron-v<version>` release. It refuses to replace an existing version.
 
 ```sh
 gh workflow run package-angle.yml -f electron_version=43.1.1
@@ -249,14 +246,13 @@ gh run watch
 
 Package revision `1` uses the `angle-electron-v<version>` tag. If packaging for an Electron version must be corrected without replacing immutable assets, dispatch with `-f package_revision=2` (or the next unused number); this publishes `angle-electron-v<version>-r2`.
 
-After publishing, update the version, release tag, and six bundle hashes in `cmake/AngleArtifacts.cmake`. Keeping those hashes in the source tree means a replaced or tampered GitHub asset is rejected during CMake configuration.
+After publishing, update the version, release tag, and bundle hashes in `cmake/AngleArtifacts.cmake`. Keeping those hashes in the source tree means a replaced or tampered GitHub asset is rejected during CMake configuration.
 
 Verify a downloaded release bundle manually:
 
 ```sh
 sha256sum --check SHA256SUMS --ignore-missing
-gh attestation verify rayplate-angle-electron-43.1.1-linux-x64.tar.gz \
-  --repo wiredmatt/rayplate
+gh attestation verify rayplate-angle-electron-43.1.1-linux-x64.tar.gz --repo wiredmatt/rayplate
 ```
 
 The integrity layers are:
@@ -311,32 +307,11 @@ Prefixes can be changed independently:
 
 ```sh
 cmake -S . -B build \
-  -DRAYLIB_ALIAS_PREFIX=GAME_ \
+  -DRAYLIB_ALIAS_PREFIX=RAY_ \
   -DRLGL_ALIAS_PREFIX=GPU_
 ```
 
 When aliases are disabled, application source must include `raylib.h`/`rlgl.h` and use the original API names.
-
-## Build diagnostics
-
-Application code is compiled as portable C99 with compiler extensions disabled.
-Warnings are enabled at `/W4` on MSVC and `-Wall -Wextra -Wpedantic` on GCC and Clang. 
-To make those application warnings fatal (as CI does), configure with:
-
-```sh
-cmake -S . -B build -DGAME_WARNINGS_AS_ERRORS=ON
-```
-
-AddressSanitizer can catch memory errors during local debug builds. GCC and Clang builds also enable UndefinedBehaviorSanitizer:
-
-```sh
-cmake --preset desktop-sanitize
-cmake --build --preset desktop-sanitize --parallel
-ctest --preset desktop-sanitize
-```
-
-Sanitizers are intended for native development builds, not WebAssembly or release packaging.
-Source formatting follows `.clang-format` and basic editor behavior follows `.editorconfig`; check C formatting with `clang-format --dry-run --Werror src/*.c src/*.h`.
 
 ## Application releases
 
