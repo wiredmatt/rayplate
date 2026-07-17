@@ -37,6 +37,8 @@ jobs:
           -DRL_ALIAS_MODE=INLINE
           -DRAYLIB_ALIAS_PREFIX=RLIB_
           -DRLGL_ALIAS_PREFIX=RLGL_
+          -DRLIMGUI_ALIAS_PREFIX=RGUI_
+          -DCIMGUI_ALIAS_PREFIX=IMGUI_
 
       - name: Build
         run: cmake --build build/web --parallel

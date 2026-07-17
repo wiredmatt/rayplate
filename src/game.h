@@ -19,8 +19,8 @@
 #define GAME_TARGET_FPS 60
 #endif
 
-void GAME_GameInit(void);
-void GAME_GameRunFrame(void);
+void GAME_Init(void);
+void GAME_RunFrame(void);
 static inline _Bool GAME_ShouldShutDown(void) { return RLIB_WindowShouldClose(); }
 void GAME_ShutDown(void);
 

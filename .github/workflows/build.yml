@@ -48,7 +48,7 @@ jobs:
         run: ${{ matrix.install_deps }}
 
       - name: Configure CMake
-        run: cmake -B build ${{ matrix.cmake_args }} -DGAME_WARNINGS_AS_ERRORS=ON -DRL_ALIAS_MODE="INLINE" -DRAYLIB_ALIAS_PREFIX="RLIB_" -DRLGL_ALIAS_PREFIX="RLGL_"
+        run: cmake -B build ${{ matrix.cmake_args }} -DGAME_WARNINGS_AS_ERRORS=ON -DRL_ALIAS_MODE="INLINE" -DRAYLIB_ALIAS_PREFIX="RLIB_" -DRLGL_ALIAS_PREFIX="RLGL_" -DRLIMGUI_ALIAS_PREFIX="RGUI_" -DCIMGUI_ALIAS_PREFIX="IMGUI_"
 
       - name: Build
         run: cmake --build build --config Release
@@ -177,7 +177,7 @@ jobs:
           actions-cache-folder: emsdk-cache
 
       - name: Configure CMake
-        run: emcmake cmake -B build/web -DPLATFORM=Web -DRL_ALIAS_MODE="INLINE" -DRAYLIB_ALIAS_PREFIX="RLIB_" -DRLGL_ALIAS_PREFIX="RLGL_"
+        run: emcmake cmake -B build/web -DPLATFORM=Web -DRL_ALIAS_MODE="INLINE" -DRAYLIB_ALIAS_PREFIX="RLIB_" -DRLGL_ALIAS_PREFIX="RLGL_" -DRLIMGUI_ALIAS_PREFIX="RGUI_" -DCIMGUI_ALIAS_PREFIX="IMGUI_"
 
       - name: Build
         run: cmake --build build/web --config Release

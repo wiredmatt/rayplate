@@ -8,6 +8,7 @@ typedef struct GAME_Game {
   Texture2D raylibLogo;
   int selectedVertex;
   bool linesMode;
+  bool backfaceCulling;
   float handleRadius;
 } GAME_Game;
 
@@ -28,6 +29,11 @@ static void GAME_ResetTriangle(void) {
 }
 
 static void GAME_DrawTriangle(void) {
+  if (game.backfaceCulling)
+    RLGL_EnableBackfaceCulling();
+  else
+    RLGL_DisableBackfaceCulling();
+
   if (game.linesMode) {
     RLGL_Begin(RLGL_LINES);
     {
@@ -87,20 +93,40 @@ static void GAME_DrawVertexHandles(void) {
 
 static void GAME_DrawControls(void) {
   RLIB_DrawText("SPACE: Toggle lines mode", 10, 10, 20, RLIB_DARKGRAY);
-  RLIB_DrawText("LEFT-RIGHT: Toggle backface culling", 10, 40, 20, RLIB_DARKGRAY);
+  RLIB_DrawText("LEFT/RIGHT: Enable/disable backface culling", 10, 40, 20, RLIB_DARKGRAY);
   RLIB_DrawText("MOUSE: Click and drag vertex points", 10, 70, 20, RLIB_DARKGRAY);
   RLIB_DrawText("R: Reset triangle to start positions", 10, 100, 20, RLIB_DARKGRAY);
 }
 
-void GAME_GameInit(void) {
+static void GAME_DrawImGui(void) {
+  RGUI_BeginFrame();
+  IMGUI_BeginWindow("Triangle controls", NULL, IMGUI_WindowFlags_AlwaysAutoResize);
+  {
+    IMGUI_Text("cimgui %s", IMGUI_GetVersion());
+    IMGUI_Checkbox("Draw lines", &game.linesMode);
+    IMGUI_Checkbox("Backface culling", &game.backfaceCulling);
+    IMGUI_SliderFloat("Handle radius", &game.handleRadius, 4.0f, 24.0f, "%.0f px", 0);
+    if (IMGUI_Button("Reset triangle", (ImVec2){0.0f, 0.0f})) {
+      GAME_ResetTriangle();
+      game.backfaceCulling = true;
+    }
+  }
+  IMGUI_EndWindow();
+  RGUI_EndFrame();
+}
+
+void GAME_Init(void) {
   RLIB_SetConfigFlags(RLIB_FLAG_WINDOW_HIGHDPI);
   RLIB_InitWindow(GAME_WINDOW_WIDTH, GAME_WINDOW_HEIGHT, GAME_WINDOW_TITLE);
   RLIB_SetTargetFPS(GAME_TARGET_FPS);
   RLIB_ChangeDirectory(RLIB_GetApplicationDirectory());
 
+  RGUI_Setup(true);
+
   game.raylibLogo = RLIB_LoadTexture(AssetPaths.images.raylib_logo_png);
   game.selectedVertex = -1;
   game.linesMode = false;
+  game.backfaceCulling = true;
   game.handleRadius = GAME_HANDLE_RADIUS;
 
   GAME_ResetTriangle();
@@ -132,16 +158,16 @@ static void GAME_GameUpdate(void) {
   }
 
   if (RLIB_IsKeyPressed(RLIB_KEY_LEFT)) {
-    RLGL_EnableBackfaceCulling();
+    game.backfaceCulling = true;
   }
 
   if (RLIB_IsKeyPressed(RLIB_KEY_RIGHT)) {
-    RLGL_DisableBackfaceCulling();
+    game.backfaceCulling = false;
   }
 
   if (RLIB_IsKeyPressed(RLIB_KEY_R)) {
     GAME_ResetTriangle();
-    RLGL_EnableBackfaceCulling();
+    game.backfaceCulling = true;
   }
 }
 
@@ -153,19 +179,21 @@ static void GAME_GameDraw(void) {
     GAME_DrawVertexHandles();
     RLIB_DrawTexture(game.raylibLogo, GAME_WINDOW_WIDTH - 256, 24, RLIB_WHITE);
     GAME_DrawControls();
+    GAME_DrawImGui();
   }
   RLIB_EndDrawing();
 }
 
-void GAME_GameRunFrame(void) {
+void GAME_RunFrame(void) {
   GAME_GameUpdate();
   GAME_GameDraw();
 }
 
 void GAME_ShutDown(void) {
-  if (RLIB_IsTextureValid(game.raylibLogo)) {
+  RGUI_Shutdown();
+
+  if (RLIB_IsTextureValid(game.raylibLogo))
     RLIB_UnloadTexture(game.raylibLogo);
-  }
 
   RLIB_CloseWindow();
 }

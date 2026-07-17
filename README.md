@@ -1,6 +1,6 @@
 # Rayplate
 
-Rayplate is a raylib 6.0 CMake template with selectable native graphics backends through [ANGLE](https://chromium.googlesource.com/angle/angle). Application code continues to use raylib and rlgl normally, raylib targets OpenGL ES 3 while ANGLE translates it to the selected platform API.
+Rayplate is a raylib 6.0 CMake template with [cimgui](https://github.com/cimgui/cimgui) and selectable native graphics backends through [ANGLE](https://chromium.googlesource.com/angle/angle). Application code continues to use raylib and rlgl normally, raylib targets OpenGL ES 3 while ANGLE translates it to the selected platform API.
 
 | Platform | Launch values | Default |
 | --- | --- | --- |
@@ -37,25 +37,41 @@ and `src/game.h`. A minimal replacement for `src/game.c` looks like this:
 ```c
 #include "game.h"
 
-void GAME_GameInit(void) {
+void GAME_Init(void) {
   RLIB_InitWindow(GAME_WINDOW_WIDTH, GAME_WINDOW_HEIGHT, GAME_WINDOW_TITLE);
+  RGUI_Setup(true);
   RLIB_SetTargetFPS(GAME_TARGET_FPS);
 }
 
-void GAME_GameRunFrame(void) {
+void GAME_RunFrame(void) {
   RLIB_BeginDrawing();
     RLIB_ClearBackground(RLIB_RAYWHITE);
     RLIB_DrawText("Hello from raylib through ANGLE", 120, 210, 20, RLIB_DARKGRAY);
+
+    RGUI_BeginFrame();
+    IMGUI_ShowDemoWindow(NULL);
+    RGUI_EndFrame();
   RLIB_EndDrawing();
 }
 
-void GAME_ShutDown(void) { RLIB_CloseWindow(); }
+void GAME_ShutDown(void) {
+  RGUI_Shutdown();
+  RLIB_CloseWindow();
+}
 ```
 
+The generated `<rl_alias.h>` header exposes cimgui through the `IMGUI_` prefix
+and the raylib backend through `RGUI_`. `RGUI_BeginFrame()` and
+`RGUI_EndFrame()` must remain inside raylib's
+`BeginDrawing()`/`EndDrawing()` pair. The pinned cimgui,
+Dear ImGui, and rlImGui sources are built statically into every desktop and web
+target; no runtime GUI library needs to be packaged. Game code remains C99,
+while the build also needs a C++11 compiler for Dear ImGui's implementation.
+
 With the default alias configuration, raylib functions and public constants use
-the `RLIB_` prefix, while rlgl functions and constants use `RLGL_`. Public
-raylib types such as `Vector2`, `Color`, and `Texture2D` retain their original
-names.
+the `RLIB_` prefix, rlgl uses `RLGL_`, rlImGui uses `RGUI_`, and cimgui uses
+`IMGUI_`. Public types such as `Vector2`, `Texture2D`, `ImVec2`, and `ImGuiIO`
+retain their original names.
 
 Assets placed under `assets/` are staged automatically for desktop bundles and
 preloaded for web builds. CMake also generates an autocomplete-friendly asset
@@ -306,13 +322,23 @@ deployment is available at <https://wiredmatt.github.io/rayplate/>.
 
 ## API alias generation
 
-The generated `rl_alias.h` includes both API layers:
+The generated `rl_alias.h` includes all four API layers:
 
 - raylib functions and public value constants use `RAYLIB_ALIAS_PREFIX` (`RLIB_`
   by default), for example `RLIB_LoadShader`, `RLIB_DARKGRAY`, and
   `RLIB_KEY_SPACE`.
 - rlgl functions and constants use `RLGL_ALIAS_PREFIX` (`RLGL_` by default),
   for example `RLGL_LoadShader` and `RLGL_TRIANGLES`.
+- rlImGui functions use `RLIMGUI_ALIAS_PREFIX` (`RGUI_` by default), for
+  example `RGUI_Setup`, `RGUI_BeginFrame`, and `RGUI_Image`.
+- cimgui functions and constants use `CIMGUI_ALIAS_PREFIX` (`IMGUI_` by
+  default), for example `IMGUI_BeginWindow`, `IMGUI_Text`, and
+  `IMGUI_WindowFlags_NoResize`.
+
+Public types remain unchanged, including `Texture2D`, `ImVec2`, and `ImGuiIO`.
+cimgui functions use macro aliases in both alias modes because its generated API
+contains overloaded suffixes and callback signatures that cannot be forwarded
+reliably by generic C99 inline wrappers.
 
 Select inline wrappers, macros, or disable aliases with `RL_ALIAS_MODE`:
 
@@ -327,10 +353,13 @@ Prefixes can be changed independently:
 ```sh
 cmake -S . -B build \
   -DRAYLIB_ALIAS_PREFIX=RAY_ \
-  -DRLGL_ALIAS_PREFIX=GPU_
+  -DRLGL_ALIAS_PREFIX=GPU_ \
+  -DRLIMGUI_ALIAS_PREFIX=GUI_ \
+  -DCIMGUI_ALIAS_PREFIX=DEAR_
 ```
 
-When aliases are disabled, application source must include `raylib.h`/`rlgl.h` and use the original API names.
+When aliases are disabled, application source must include the individual
+library headers and use the original API names.
 
 ## Application releases
 

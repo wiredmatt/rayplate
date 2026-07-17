@@ -20,19 +20,18 @@ int main(int argc, char **argv) {
   (void)argc;
   (void)argv;
 
-  GAME_GameInit(); // Initialize raylib window and game resources
+  GAME_Init(); // Initialize raylib window and game resources
 
 #if defined(GAME_ANGLE_ENABLED)
   ANGLE_LogRenderer();
 #endif
 
 #if defined(PLATFORM_WEB) // Initialize emscripten specific main loop
-  emscripten_set_main_loop(GAME_GameRunFrame, 0, 1);
+  emscripten_set_main_loop(GAME_RunFrame, 0, 1);
 #else // Run main game loop (desktop)
 
-  while (!GAME_ShouldShutDown()) {
-    GAME_GameRunFrame();
-  }
+  while (!GAME_ShouldShutDown())
+    GAME_RunFrame();
 
   GAME_ShutDown();
 #endif
