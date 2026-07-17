@@ -1,7 +1,7 @@
 # Locked release metadata for the default DOWNLOAD provider. Every hash is for
 # the complete deterministic .tar.gz bundle, not only the shared libraries.
 set(GAME_ANGLE_ELECTRON_VERSION "43.1.1")
-set(GAME_ANGLE_RELEASE_REPOSITORY "wiredmatt/rayplate")
+set(GAME_ANGLE_RELEASE_REPOSITORY "${GAME_GITHUB_REPOSITORY}")
 set(GAME_ANGLE_RELEASE_TAG "angle-electron-v43.1.1-r2")
 
 # Filled from the deterministic output of scripts/package_angle.py. These

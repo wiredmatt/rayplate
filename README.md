@@ -14,21 +14,42 @@ The desktop build downloads an ANGLE runtime bundle produced from Electron build
 
 ## Use this template
 
-Set the following values at the top of `CMakeLists.txt` before you start building your game:
+Initialize a repository created from this template with one command:
+
+```sh
+python scripts/init_project.py \
+  --name my_game \
+  --title "My Game" \
+  --github-repository my-user-or-org/my-game
+```
+
+This updates the executable and artifact names, window title, bundle identifier,
+copyright holder, GitHub Pages URL, and the GitHub repository used to download
+ANGLE bundles. Use `--dry-run` to preview every change. Run
+`python scripts/init_project.py --help` for version, bundle identifier, and
+copyright overrides.
+
+The corresponding defaults live at the top of `CMakeLists.txt`:
 
 ```cmake
 set(GAME_BIN_NAME "my_game" CACHE STRING "Executable and build target name")
 set(GAME_WINDOW_TITLE "My Game" CACHE STRING "Human-readable application name")
 set(GAME_VERSION "0.1.0" CACHE STRING "Application version")
 set(GAME_BUNDLE_IDENTIFIER "io.github.example.my-game" CACHE STRING "application bundle identifier")
+set(GAME_GITHUB_REPOSITORY "wiredmatt/rayplate" CACHE STRING "GitHub owner/repository")
 ```
 
 The target name controls native executable, macOS bundle, and web artifact
 filenames. The display name, version, and bundle identifier configure platform
 metadata, and `GAME_WINDOW_TITLE` is also passed to the application as its
-window title. The build, release, and Pages workflows intentionally retain
-their existing `my_game` artifact paths, so update those paths separately if
-you change `GAME_BIN_NAME` and still use those workflows.
+window title. Prefer the initialization script over changing these values
+manually because it keeps the build, release, and Pages workflows in sync.
+
+The DOWNLOAD provider expects ANGLE artifacts in the initialized GitHub
+repository. Before its first desktop CI build, run the **Package ANGLE from
+Electron** workflow there with Electron `43.1.1` and package revision `2`.
+The workflow publishes immutable, attested bundles whose hashes already match
+`cmake/AngleArtifacts.cmake`.
 
 `src/main.c` owns ANGLE setup and the platform-specific desktop or web main
 loop. Game initialization, per-frame work, and shutdown live in `src/game.c`
@@ -295,7 +316,8 @@ python3 scripts/package_angle.py \
   --archive-sha256 <electron-archive-sha256>
 ```
 
-Python 3.10 or newer is required only to create bundles, not to build or run the game.
+Python 3.10 or newer is required for the repository scripts and build-time
+asset catalog generation, but not to run a packaged game.
 
 ## Publish a new ANGLE runtime release
 

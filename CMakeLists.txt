@@ -6,6 +6,8 @@ set(GAME_WINDOW_TITLE "My Game" CACHE STRING "Human-readable application name")
 set(GAME_VERSION "0.1.0" CACHE STRING "Application version")
 set(GAME_BUNDLE_IDENTIFIER "io.github.example.my-game" CACHE STRING
     "Reverse-DNS application bundle identifier")
+set(GAME_GITHUB_REPOSITORY "wiredmatt/rayplate" CACHE STRING
+    "GitHub owner/repository used for project-hosted artifacts")
 option(GAME_ENABLE_IMGUI "Build the optional cimgui/rlImGui integration" ON)
 
 project(${GAME_BIN_NAME} VERSION ${GAME_VERSION} LANGUAGES C)

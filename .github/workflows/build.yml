@@ -20,6 +20,13 @@ jobs:
       - name: Check formatting
         run: clang-format --dry-run --Werror src/*.c src/*.h
 
+      - name: Test project scripts
+        run: >-
+          python -m unittest
+          scripts/test_init_project.py
+          scripts/test_package_angle.py
+          -v
+
   build:
     name: Build on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
