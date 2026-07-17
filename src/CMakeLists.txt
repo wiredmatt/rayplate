@@ -18,14 +18,87 @@ target_sources(${PROJECT_NAME} PRIVATE
 )
 target_link_libraries(${PROJECT_NAME} PRIVATE raylib)
 
+set(game_assets_dir "${CMAKE_SOURCE_DIR}/assets")
+if(EXISTS "${game_assets_dir}")
+    if(EMSCRIPTEN OR PLATFORM STREQUAL "Web")
+        set(game_runtime_asset_dir "assets")
+        target_link_options(${PROJECT_NAME} PRIVATE
+            "--preload-file" "${game_assets_dir}@/assets"
+        )
+    elseif(APPLE)
+        set(game_runtime_asset_dir "../Resources/assets")
+        set(game_asset_output_dir "$<TARGET_BUNDLE_CONTENT_DIR:${PROJECT_NAME}>/Resources/assets")
+        add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_directory
+                    "${game_assets_dir}"
+                    "${game_asset_output_dir}"
+            COMMENT "Copying game assets into the app bundle"
+            VERBATIM
+        )
+    else()
+        set(game_runtime_asset_dir "assets")
+        set(game_asset_output_dir "$<TARGET_FILE_DIR:${PROJECT_NAME}>/assets")
+        add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_directory
+                    "${game_assets_dir}"
+                    "${game_asset_output_dir}"
+            COMMENT "Copying game assets"
+            VERBATIM
+        )
+    endif()
+else()
+    set(game_runtime_asset_dir "assets")
+endif()
+
+find_package(Python3 COMPONENTS Interpreter REQUIRED)
+set(game_assets_generated_dir "${CMAKE_BINARY_DIR}/generated/assets")
+set(game_assets_header "${game_assets_generated_dir}/game_assets.h")
+set(game_assets_source "${game_assets_generated_dir}/game_assets.c")
+set(game_assets_manifest "${game_assets_generated_dir}/game_assets.manifest")
+file(GLOB_RECURSE game_asset_files CONFIGURE_DEPENDS "${game_assets_dir}/*")
+list(SORT game_asset_files)
+
+set(game_assets_manifest_content "")
+foreach(game_asset_file IN LISTS game_asset_files)
+    file(RELATIVE_PATH game_asset_relative_path "${game_assets_dir}" "${game_asset_file}")
+    string(APPEND game_assets_manifest_content "${game_asset_relative_path}\n")
+endforeach()
+file(WRITE "${game_assets_manifest}" "${game_assets_manifest_content}")
+
+add_custom_command(
+    OUTPUT "${game_assets_header}" "${game_assets_source}"
+    COMMAND "${Python3_EXECUTABLE}"
+            "${CMAKE_SOURCE_DIR}/scripts/generate_game_assets.py"
+            --assets-dir "${game_assets_dir}"
+            --header "${game_assets_header}"
+            --source "${game_assets_source}"
+            --include-name "game_assets.h"
+    DEPENDS
+            "${CMAKE_SOURCE_DIR}/scripts/generate_game_assets.py"
+            "${game_assets_manifest}"
+            ${game_asset_files}
+    COMMENT "Generating game asset catalog"
+    VERBATIM
+)
+add_custom_target(generate_game_assets
+    DEPENDS "${game_assets_header}" "${game_assets_source}"
+)
+add_dependencies(${PROJECT_NAME} generate_game_assets)
+target_sources(${PROJECT_NAME} PRIVATE "${game_assets_source}")
+target_include_directories(${PROJECT_NAME} PRIVATE "${game_assets_generated_dir}")
+
 # Escape the cache value as a C string literal before passing it through the
 # compiler command line. This keeps CMake as the single source of truth for the
 # application and macOS bundle title.
 set(game_window_title_c "${GAME_WINDOW_TITLE}")
 string(REPLACE "\\" "\\\\" game_window_title_c "${game_window_title_c}")
 string(REPLACE "\"" "\\\"" game_window_title_c "${game_window_title_c}")
+set(game_runtime_asset_dir_c "${game_runtime_asset_dir}")
+string(REPLACE "\\" "\\\\" game_runtime_asset_dir_c "${game_runtime_asset_dir_c}")
+string(REPLACE "\"" "\\\"" game_runtime_asset_dir_c "${game_runtime_asset_dir_c}")
 target_compile_definitions(${PROJECT_NAME} PRIVATE
     GAME_WINDOW_TITLE="${game_window_title_c}"
+    GAME_RUNTIME_ASSET_DIR="${game_runtime_asset_dir_c}"
 )
 
 # Keep strict warnings scoped to application code so third-party dependencies do

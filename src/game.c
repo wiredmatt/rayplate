@@ -1,21 +1,24 @@
 #include <rl_alias.h>
 
 #include "game.h"
+#include "game_assets.h"
 
 typedef struct GAME_Game {
   Vector2 trianglePositions[3];
+  Texture2D raylibLogo;
   int selectedVertex;
   bool linesMode;
   float handleRadius;
 } GAME_Game;
 
-static const Vector2 GAME_STARTING_POSITIONS[3] = {
+enum { GAME_VERTEX_COUNT = 3 };
+static const Vector2 GAME_STARTING_POSITIONS[GAME_VERTEX_COUNT] = {
     {400.0f, 150.0f},
     {300.0f, 300.0f},
     {500.0f, 300.0f},
 };
-static const int GAME_VERTEX_COUNT = 3;
 static const float GAME_HANDLE_RADIUS = 8.0f;
+
 static GAME_Game game;
 
 static void GAME_ResetTriangle(void) {
@@ -93,7 +96,9 @@ void GAME_GameInit(void) {
   RLIB_SetConfigFlags(RLIB_FLAG_WINDOW_HIGHDPI);
   RLIB_InitWindow(GAME_WINDOW_WIDTH, GAME_WINDOW_HEIGHT, GAME_WINDOW_TITLE);
   RLIB_SetTargetFPS(GAME_TARGET_FPS);
+  RLIB_ChangeDirectory(RLIB_GetApplicationDirectory());
 
+  game.raylibLogo = RLIB_LoadTexture(AssetPaths.images.raylib_logo_png);
   game.selectedVertex = -1;
   game.linesMode = false;
   game.handleRadius = GAME_HANDLE_RADIUS;
@@ -146,6 +151,7 @@ static void GAME_GameDraw(void) {
     RLIB_ClearBackground(RLIB_RAYWHITE);
     GAME_DrawTriangle();
     GAME_DrawVertexHandles();
+    RLIB_DrawTexture(game.raylibLogo, GAME_WINDOW_WIDTH - 256, 24, RLIB_WHITE);
     GAME_DrawControls();
   }
   RLIB_EndDrawing();
@@ -156,4 +162,10 @@ void GAME_GameRunFrame(void) {
   GAME_GameDraw();
 }
 
-void GAME_ShutDown(void) { RLIB_CloseWindow(); }
+void GAME_ShutDown(void) {
+  if (RLIB_IsTextureValid(game.raylibLogo)) {
+    RLIB_UnloadTexture(game.raylibLogo);
+  }
+
+  RLIB_CloseWindow();
+}

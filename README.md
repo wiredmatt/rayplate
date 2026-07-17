@@ -57,6 +57,25 @@ the `RLIB_` prefix, while rlgl functions and constants use `RLGL_`. Public
 raylib types such as `Vector2`, `Color`, and `Texture2D` retain their original
 names.
 
+Assets placed under `assets/` are staged automatically for desktop bundles and
+preloaded for web builds. CMake also generates an autocomplete-friendly asset
+catalog from that tree:
+
+```c
+#include "game_assets.h"
+
+Texture2D logo = RLIB_LoadTexture(AssetPaths.images.raylib_logo_png);
+```
+
+Nested directories become nested fields. For example,
+`assets/images/ui/button-hover.png` becomes
+`AssetPaths.images.ui.button_hover_png`. Normal builds keep the catalog current.
+To regenerate it explicitly:
+
+```sh
+cmake --build --preset desktop-debug --target generate_game_assets
+```
+
 ## How the graphics stack works
 
 Rayplate builds raylib and rlgl for OpenGL ES 3 and uses raylib's bundled GLFW EGL context path. At startup, `--graphics-api` selects an ANGLE renderer before `RLIB_InitWindow()` creates the context.
