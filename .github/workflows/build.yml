@@ -61,6 +61,7 @@ jobs:
         run: |
           readelf -d build/my_game | grep 'Shared library: \[libGLESv2.so\]'
           test -f build/libvulkan.so.1
+          test -f build/assets/images/raylib_logo.png
 
       - name: Smoke test Linux ANGLE backends
         if: runner.os == 'Linux'
@@ -134,6 +135,7 @@ jobs:
           mkdir -p build/package-check
           ditto -x -k build/my_game-macos.zip build/package-check
           test -x build/package-check/my_game.app/Contents/MacOS/my_game
+          test -f build/package-check/my_game.app/Contents/Resources/assets/images/raylib_logo.png
           codesign --verify --deep --strict --verbose=2 \
             build/package-check/my_game.app
 
@@ -145,6 +147,8 @@ jobs:
             build/my_game
             build/my_game.exe
             build/Release/my_game.exe
+            build/assets/**
+            build/Release/assets/**
             build/libEGL.*
             build/libGLESv2.*
             build/libvulkan.so.*
@@ -186,6 +190,7 @@ jobs:
             build/web/my_game.html
             build/web/my_game.js
             build/web/my_game.wasm
+            build/web/my_game.data
           if-no-files-found: error
 
   release:
@@ -220,6 +225,9 @@ jobs:
       - name: Prepare release files
         run: |
           mkdir -p release
+          test -f artifacts/my_game-ubuntu-latest/assets/images/raylib_logo.png
+          test -f artifacts/my_game-windows-latest/Release/assets/images/raylib_logo.png
+          test -f artifacts/my_game-web/my_game.data
           chmod +x artifacts/my_game-ubuntu-latest/my_game
           tar -C artifacts/my_game-ubuntu-latest -czf release/my_game-linux.tar.gz .
           cp artifacts/my_game-macos-latest/my_game-macos.zip release/my_game-macos.zip
@@ -259,6 +267,9 @@ jobs:
       - name: Prepare release files
         run: |
           mkdir -p release
+          test -f artifacts/my_game-ubuntu-latest/assets/images/raylib_logo.png
+          test -f artifacts/my_game-windows-latest/Release/assets/images/raylib_logo.png
+          test -f artifacts/my_game-web/my_game.data
           chmod +x artifacts/my_game-ubuntu-latest/my_game
           tar -C artifacts/my_game-ubuntu-latest -czf "release/my_game-linux-${{ github.ref_name }}.tar.gz" .
           cp artifacts/my_game-macos-latest/my_game-macos.zip \

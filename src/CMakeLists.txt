@@ -29,6 +29,8 @@ if(EXISTS "${game_assets_dir}")
         set(game_runtime_asset_dir "../Resources/assets")
         set(game_asset_output_dir "$<TARGET_BUNDLE_CONTENT_DIR:${PROJECT_NAME}>/Resources/assets")
         add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E remove_directory
+                    "${game_asset_output_dir}"
             COMMAND ${CMAKE_COMMAND} -E copy_directory
                     "${game_assets_dir}"
                     "${game_asset_output_dir}"
@@ -39,6 +41,8 @@ if(EXISTS "${game_assets_dir}")
         set(game_runtime_asset_dir "assets")
         set(game_asset_output_dir "$<TARGET_FILE_DIR:${PROJECT_NAME}>/assets")
         add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E remove_directory
+                    "${game_asset_output_dir}"
             COMMAND ${CMAKE_COMMAND} -E copy_directory
                     "${game_assets_dir}"
                     "${game_asset_output_dir}"
