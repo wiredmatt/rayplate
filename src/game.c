@@ -90,8 +90,8 @@ static void GAME_DrawControls(void) {
 }
 
 void GAME_GameInit(void) {
+  RLIB_SetConfigFlags(RLIB_FLAG_WINDOW_HIGHDPI);
   RLIB_InitWindow(GAME_WINDOW_WIDTH, GAME_WINDOW_HEIGHT, GAME_WINDOW_TITLE);
-
   RLIB_SetTargetFPS(GAME_TARGET_FPS);
 
   game.selectedVertex = -1;
