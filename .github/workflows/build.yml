@@ -48,13 +48,24 @@ jobs:
         run: ${{ matrix.install_deps }}
 
       - name: Configure CMake
-        run: cmake -B build ${{ matrix.cmake_args }} -DGAME_WARNINGS_AS_ERRORS=ON -DRL_ALIAS_MODE="INLINE" -DRAYLIB_ALIAS_PREFIX="RLIB_" -DRLGL_ALIAS_PREFIX="RLGL_" -DRLIMGUI_ALIAS_PREFIX="RGUI_" -DCIMGUI_ALIAS_PREFIX="IMGUI_"
+        run: cmake -B build ${{ matrix.cmake_args }} -DGAME_WARNINGS_AS_ERRORS=ON -DGAME_ENABLE_IMGUI=ON -DRL_ALIAS_MODE="INLINE" -DRAYLIB_ALIAS_PREFIX="RLIB_" -DRLGL_ALIAS_PREFIX="RLGL_" -DRLIMGUI_ALIAS_PREFIX="RGUI_" -DCIMGUI_ALIAS_PREFIX="IMGUI_"
 
       - name: Build
         run: cmake --build build --config Release
 
       - name: Test
         run: ctest --test-dir build -C Release --output-on-failure
+
+      - name: Configure without ImGui
+        if: runner.os == 'Linux'
+        run: cmake -B build/no-imgui -DGAME_ANGLE_PROVIDER=OFF -DGAME_ENABLE_IMGUI=OFF -DGAME_WARNINGS_AS_ERRORS=ON -DRL_ALIAS_MODE=INLINE
+
+      - name: Verify ImGui module is absent
+        if: runner.os == 'Linux'
+        run: |
+          test ! -e build/no-imgui/_deps/cimgui-src
+          test ! -e build/no-imgui/_deps/rlimgui-src
+          test ! -e build/no-imgui/aliased/im_alias.h
 
       - name: Verify Linux resolves rlgl through ANGLE
         if: runner.os == 'Linux'
@@ -177,7 +188,7 @@ jobs:
           actions-cache-folder: emsdk-cache
 
       - name: Configure CMake
-        run: emcmake cmake -B build/web -DPLATFORM=Web -DRL_ALIAS_MODE="INLINE" -DRAYLIB_ALIAS_PREFIX="RLIB_" -DRLGL_ALIAS_PREFIX="RLGL_" -DRLIMGUI_ALIAS_PREFIX="RGUI_" -DCIMGUI_ALIAS_PREFIX="IMGUI_"
+        run: emcmake cmake -B build/web -DPLATFORM=Web -DGAME_ENABLE_IMGUI=ON -DRL_ALIAS_MODE="INLINE" -DRAYLIB_ALIAS_PREFIX="RLIB_" -DRLGL_ALIAS_PREFIX="RLGL_" -DRLIMGUI_ALIAS_PREFIX="RGUI_" -DCIMGUI_ALIAS_PREFIX="IMGUI_"
 
       - name: Build
         run: cmake --build build/web --config Release

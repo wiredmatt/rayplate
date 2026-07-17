@@ -1,3 +1,5 @@
+cmake_policy(VERSION 3.25)
+
 if(NOT DEFINED RAYLIB_HEADER_PATH)
     message(FATAL_ERROR "RAYLIB_HEADER_PATH is required")
 endif()
@@ -6,12 +8,14 @@ if(NOT DEFINED RLGL_HEADER_PATH)
     message(FATAL_ERROR "RLGL_HEADER_PATH is required")
 endif()
 
-if(NOT DEFINED RLIMGUI_HEADER_PATH)
-    message(FATAL_ERROR "RLIMGUI_HEADER_PATH is required")
-endif()
+if(DEFINED IM_ALIAS_HEADER_PATH)
+    if(NOT DEFINED RLIMGUI_HEADER_PATH)
+        message(FATAL_ERROR "RLIMGUI_HEADER_PATH is required when generating im_alias.h")
+    endif()
 
-if(NOT DEFINED CIMGUI_HEADER_PATH)
-    message(FATAL_ERROR "CIMGUI_HEADER_PATH is required")
+    if(NOT DEFINED CIMGUI_HEADER_PATH)
+        message(FATAL_ERROR "CIMGUI_HEADER_PATH is required when generating im_alias.h")
+    endif()
 endif()
 
 if(NOT DEFINED RL_ALIAS_HEADER_PATH)
@@ -30,20 +34,21 @@ if(NOT DEFINED RLGL_ALIAS_PREFIX)
     set(RLGL_ALIAS_PREFIX "RLGL_")
 endif()
 
-if(NOT DEFINED RLIMGUI_ALIAS_PREFIX)
-    set(RLIMGUI_ALIAS_PREFIX "RGUI_")
-endif()
-
-if(NOT DEFINED CIMGUI_ALIAS_PREFIX)
-    set(CIMGUI_ALIAS_PREFIX "IMGUI_")
-endif()
-
 set(prefix_variables
     RAYLIB_ALIAS_PREFIX
     RLGL_ALIAS_PREFIX
-    RLIMGUI_ALIAS_PREFIX
-    CIMGUI_ALIAS_PREFIX
 )
+if(DEFINED IM_ALIAS_HEADER_PATH)
+    if(NOT DEFINED RLIMGUI_ALIAS_PREFIX)
+        set(RLIMGUI_ALIAS_PREFIX "RGUI_")
+    endif()
+
+    if(NOT DEFINED CIMGUI_ALIAS_PREFIX)
+        set(CIMGUI_ALIAS_PREFIX "IMGUI_")
+    endif()
+
+    list(APPEND prefix_variables RLIMGUI_ALIAS_PREFIX CIMGUI_ALIAS_PREFIX)
+endif()
 foreach(prefix_variable IN LISTS prefix_variables)
     if("${${prefix_variable}}" STREQUAL "")
         message(FATAL_ERROR "${prefix_variable} must not be empty")
@@ -79,12 +84,14 @@ if(NOT EXISTS "${RLGL_HEADER_PATH}")
     message(FATAL_ERROR "Could not find rlgl header: ${RLGL_HEADER_PATH}")
 endif()
 
-if(NOT EXISTS "${RLIMGUI_HEADER_PATH}")
-    message(FATAL_ERROR "Could not find rlImGui header: ${RLIMGUI_HEADER_PATH}")
-endif()
+if(DEFINED IM_ALIAS_HEADER_PATH)
+    if(NOT EXISTS "${RLIMGUI_HEADER_PATH}")
+        message(FATAL_ERROR "Could not find rlImGui header: ${RLIMGUI_HEADER_PATH}")
+    endif()
 
-if(NOT EXISTS "${CIMGUI_HEADER_PATH}")
-    message(FATAL_ERROR "Could not find cimgui header: ${CIMGUI_HEADER_PATH}")
+    if(NOT EXISTS "${CIMGUI_HEADER_PATH}")
+        message(FATAL_ERROR "Could not find cimgui header: ${CIMGUI_HEADER_PATH}")
+    endif()
 endif()
 
 get_filename_component(RL_ALIAS_HEADER_DIR "${RL_ALIAS_HEADER_PATH}" DIRECTORY)
@@ -94,9 +101,7 @@ file(WRITE "${RL_ALIAS_HEADER_PATH}" "// Auto-generated alias file\n\n")
 file(APPEND "${RL_ALIAS_HEADER_PATH}" "#ifndef _RL_ALIAS_H\n")
 file(APPEND "${RL_ALIAS_HEADER_PATH}" "#define _RL_ALIAS_H\n")
 file(APPEND "${RL_ALIAS_HEADER_PATH}" "#include <raylib.h>\n")
-file(APPEND "${RL_ALIAS_HEADER_PATH}" "#include <rlgl.h>\n")
-file(APPEND "${RL_ALIAS_HEADER_PATH}" "#include <cimgui.h>\n")
-file(APPEND "${RL_ALIAS_HEADER_PATH}" "#include <rlImGui.h>\n\n")
+file(APPEND "${RL_ALIAS_HEADER_PATH}" "#include <rlgl.h>\n\n")
 
 function(generate_api_aliases API_NAME HEADER_PATH ALIAS_PREFIX DECLARATION_REGEX)
     file(APPEND "${RL_ALIAS_HEADER_PATH}" "// ${API_NAME} aliases (${ALIAS_PREFIX}*)\n")
@@ -324,12 +329,61 @@ function(generate_cimgui_constant_aliases HEADER_PATH ALIAS_PREFIX)
     file(APPEND "${RL_ALIAS_HEADER_PATH}" "\n")
 endfunction()
 
+function(split_c_arguments ARGUMENTS OUTPUT_VARIABLE)
+    set(arguments_list "")
+    set(current_argument "")
+    set(parenthesis_depth 0)
+    set(bracket_depth 0)
+    string(LENGTH "${ARGUMENTS}" arguments_length)
+    if(arguments_length GREATER 0)
+        math(EXPR arguments_last_index "${arguments_length} - 1")
+        foreach(character_index RANGE 0 ${arguments_last_index})
+            string(SUBSTRING "${ARGUMENTS}" ${character_index} 1 character)
+            if(character STREQUAL "(")
+                math(EXPR parenthesis_depth "${parenthesis_depth} + 1")
+            elseif(character STREQUAL ")")
+                math(EXPR parenthesis_depth "${parenthesis_depth} - 1")
+            elseif(character STREQUAL "[")
+                math(EXPR bracket_depth "${bracket_depth} + 1")
+            elseif(character STREQUAL "]")
+                math(EXPR bracket_depth "${bracket_depth} - 1")
+            endif()
+
+            if(character STREQUAL "," AND
+               parenthesis_depth EQUAL 0 AND bracket_depth EQUAL 0)
+                string(STRIP "${current_argument}" current_argument)
+                list(APPEND arguments_list "${current_argument}")
+                set(current_argument "")
+            else()
+                string(APPEND current_argument "${character}")
+            endif()
+        endforeach()
+    endif()
+
+    string(STRIP "${current_argument}" current_argument)
+    if(NOT current_argument STREQUAL "")
+        list(APPEND arguments_list "${current_argument}")
+    endif()
+    set(${OUTPUT_VARIABLE} "${arguments_list}" PARENT_SCOPE)
+endfunction()
+
+function(get_c_argument_name ARGUMENT OUTPUT_VARIABLE)
+    if(ARGUMENT MATCHES "\\(\\*[ \t]*([A-Za-z_][A-Za-z0-9_]*)[ \t]*\\)")
+        set(argument_name "${CMAKE_MATCH_1}")
+    else()
+        string(REGEX REPLACE "[ \t]*\\[[^]]*\\][ \t]*$" "" argument_without_array "${ARGUMENT}")
+        string(REGEX MATCH "([A-Za-z_][A-Za-z0-9_]*)[ \t]*$" argument_name "${argument_without_array}")
+    endif()
+
+    if(argument_name STREQUAL "")
+        message(FATAL_ERROR "Could not parse cimgui argument name from '${ARGUMENT}'")
+    endif()
+    set(${OUTPUT_VARIABLE} "${argument_name}" PARENT_SCOPE)
+endfunction()
+
 function(generate_cimgui_api_aliases HEADER_PATH ALIAS_PREFIX)
     file(APPEND "${RL_ALIAS_HEADER_PATH}"
-        "// cimgui API aliases (${ALIAS_PREFIX}*)\n"
-        "// Macro aliases are used in both modes because the generated API has\n"
-        "// overloaded suffixes and callback signatures that generic C99 inline\n"
-        "// wrappers cannot forward safely.\n")
+        "// cimgui API aliases (${ALIAS_PREFIX}*)\n")
 
     file(STRINGS "${HEADER_PATH}" api_lines
         REGEX "^[ \t]*CIMGUI_API[ \t]+.*\\);")
@@ -362,8 +416,78 @@ function(generate_cimgui_api_aliases HEADER_PATH ALIAS_PREFIX)
                 "cimgui alias collision while generating ${alias_name} from ${function_name}")
         endif()
         list(APPEND generated_aliases "${alias_name}")
+
+        set(api_condition "")
+        if(function_name MATCHES "0$")
+            set(api_condition "CIMGUI_VARGS0")
+        elseif(function_name MATCHES "^ImGuiFreeType_")
+            set(api_condition "IMGUI_ENABLE_FREETYPE")
+        elseif(function_name MATCHES "^ImGuiPlatformIO_Set_")
+            set(api_condition "IMGUI_HAS_DOCK")
+        endif()
+        if(NOT api_condition STREQUAL "")
+            file(APPEND "${RL_ALIAS_HEADER_PATH}"
+                "#if defined(${api_condition})\n")
+        endif()
+
+        if(RL_ALIAS_MODE STREQUAL "DEFINE")
+            file(APPEND "${RL_ALIAS_HEADER_PATH}"
+                "#define ${alias_name} ${function_name}\n")
+            if(NOT api_condition STREQUAL "")
+                file(APPEND "${RL_ALIAS_HEADER_PATH}" "#endif\n")
+            endif()
+            continue()
+        endif()
+
+        string(REGEX REPLACE "[ \t]*${function_name}[ \t]*$" "" return_type "${declaration}")
+        string(REGEX REPLACE "^[ \t]*CIMGUI_API[ \t]+" "" return_type "${return_type}")
+        string(STRIP "${return_type}" return_type)
+
+        math(EXPR arguments_start "${argument_list_start} + 1")
+        string(SUBSTRING "${line}" ${arguments_start} -1 arguments)
+        string(REGEX REPLACE "\\)[ \t]*;[ \t]*$" "" arguments "${arguments}")
+        string(STRIP "${arguments}" arguments)
+
+        if(arguments MATCHES "\\.\\.\\.")
+            # C99 cannot forward an arbitrary variadic argument list without a
+            # corresponding va_list entry point.
+            file(APPEND "${RL_ALIAS_HEADER_PATH}"
+                "#define ${alias_name} ${function_name}\n")
+            if(NOT api_condition STREQUAL "")
+                file(APPEND "${RL_ALIAS_HEADER_PATH}" "#endif\n")
+            endif()
+            continue()
+        endif()
+
+        set(call_arguments "")
+        if(NOT arguments STREQUAL "void" AND NOT arguments STREQUAL "")
+            split_c_arguments("${arguments}" split_arguments)
+            foreach(argument IN LISTS split_arguments)
+                get_c_argument_name("${argument}" argument_name)
+                if(call_arguments STREQUAL "")
+                    set(call_arguments "${argument_name}")
+                else()
+                    string(APPEND call_arguments ", ${argument_name}")
+                endif()
+            endforeach()
+        else()
+            set(arguments "void")
+        endif()
+
         file(APPEND "${RL_ALIAS_HEADER_PATH}"
-            "#define ${alias_name} ${function_name}\n")
+            "static inline ${return_type} ${alias_name}(${arguments})\n"
+            "{\n")
+        if(return_type STREQUAL "void")
+            file(APPEND "${RL_ALIAS_HEADER_PATH}"
+                "    ${function_name}(${call_arguments});\n")
+        else()
+            file(APPEND "${RL_ALIAS_HEADER_PATH}"
+                "    return ${function_name}(${call_arguments});\n")
+        endif()
+        file(APPEND "${RL_ALIAS_HEADER_PATH}" "}\n\n")
+        if(NOT api_condition STREQUAL "")
+            file(APPEND "${RL_ALIAS_HEADER_PATH}" "#endif\n")
+        endif()
     endforeach()
 
     file(APPEND "${RL_ALIAS_HEADER_PATH}" "\n")
@@ -375,10 +499,24 @@ generate_api_aliases("raylib" "${RAYLIB_HEADER_PATH}" "${RAYLIB_ALIAS_PREFIX}"
 generate_constant_aliases("rlgl" "${RLGL_HEADER_PATH}" "${RLGL_ALIAS_PREFIX}" TRUE)
 generate_api_aliases("rlgl" "${RLGL_HEADER_PATH}" "${RLGL_ALIAS_PREFIX}"
     "^[ \t]*RLAPI[ \t]+.*\\);")
-generate_api_aliases("rlImGui" "${RLIMGUI_HEADER_PATH}" "${RLIMGUI_ALIAS_PREFIX}"
-    "^[ \t]*(RLIMGUIAPI[ \t]+)?.*rlImGui[A-Za-z0-9_]*[ \t]*\\(.*\\);")
-generate_cimgui_constant_aliases("${CIMGUI_HEADER_PATH}" "${CIMGUI_ALIAS_PREFIX}")
-generate_cimgui_api_aliases("${CIMGUI_HEADER_PATH}" "${CIMGUI_ALIAS_PREFIX}")
-
 file(APPEND "${RL_ALIAS_HEADER_PATH}" "#endif // _RL_ALIAS_H\n")
-message(STATUS "Alias file generated: ${RL_ALIAS_HEADER_PATH}")
+message(STATUS "Raylib alias file generated: ${RL_ALIAS_HEADER_PATH}")
+
+if(DEFINED IM_ALIAS_HEADER_PATH)
+    set(RL_ALIAS_HEADER_PATH "${IM_ALIAS_HEADER_PATH}")
+    get_filename_component(IM_ALIAS_HEADER_DIR "${IM_ALIAS_HEADER_PATH}" DIRECTORY)
+    file(MAKE_DIRECTORY "${IM_ALIAS_HEADER_DIR}")
+    file(WRITE "${IM_ALIAS_HEADER_PATH}" "// Auto-generated ImGui alias file\n\n")
+    file(APPEND "${IM_ALIAS_HEADER_PATH}" "#ifndef _IM_ALIAS_H\n")
+    file(APPEND "${IM_ALIAS_HEADER_PATH}" "#define _IM_ALIAS_H\n")
+    file(APPEND "${IM_ALIAS_HEADER_PATH}" "#include <cimgui.h>\n")
+    file(APPEND "${IM_ALIAS_HEADER_PATH}" "#include <rlImGui.h>\n\n")
+
+    generate_api_aliases("rlImGui" "${RLIMGUI_HEADER_PATH}" "${RLIMGUI_ALIAS_PREFIX}"
+        "^[ \t]*(RLIMGUIAPI[ \t]+)?.*rlImGui[A-Za-z0-9_]*[ \t]*\\(.*\\);")
+    generate_cimgui_constant_aliases("${CIMGUI_HEADER_PATH}" "${CIMGUI_ALIAS_PREFIX}")
+    generate_cimgui_api_aliases("${CIMGUI_HEADER_PATH}" "${CIMGUI_ALIAS_PREFIX}")
+
+    file(APPEND "${IM_ALIAS_HEADER_PATH}" "#endif // _IM_ALIAS_H\n")
+    message(STATUS "ImGui alias file generated: ${IM_ALIAS_HEADER_PATH}")
+endif()

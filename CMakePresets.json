@@ -50,6 +50,15 @@
       }
     },
     {
+      "name": "desktop-no-imgui",
+      "inherits": "desktop-base",
+      "displayName": "Desktop debug without ImGui",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "GAME_ENABLE_IMGUI": "OFF"
+      }
+    },
+    {
       "name": "web-release",
       "displayName": "Emscripten web release",
       "generator": "Ninja",
@@ -76,6 +85,10 @@
     {
       "name": "desktop-no-angle",
       "configurePreset": "desktop-no-angle"
+    },
+    {
+      "name": "desktop-no-imgui",
+      "configurePreset": "desktop-no-imgui"
     },
     {
       "name": "web-release",

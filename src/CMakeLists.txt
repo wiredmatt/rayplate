@@ -16,7 +16,10 @@ target_sources(${PROJECT_NAME} PRIVATE
     game.c
     game.h
 )
-target_link_libraries(${PROJECT_NAME} PRIVATE raylib rayplate_imgui)
+target_link_libraries(${PROJECT_NAME} PRIVATE raylib)
+if(GAME_ENABLE_IMGUI)
+    target_link_libraries(${PROJECT_NAME} PRIVATE rayplate_imgui)
+endif()
 
 set(game_assets_dir "${CMAKE_SOURCE_DIR}/assets")
 if(EXISTS "${game_assets_dir}")

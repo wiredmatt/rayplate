@@ -1,6 +1,6 @@
 # Rayplate
 
-Rayplate is a raylib 6.0 CMake template with [cimgui](https://github.com/cimgui/cimgui) and selectable native graphics backends through [ANGLE](https://chromium.googlesource.com/angle/angle). Application code continues to use raylib and rlgl normally, raylib targets OpenGL ES 3 while ANGLE translates it to the selected platform API.
+Rayplate is a raylib 6.0 CMake template with optional [cimgui](https://github.com/cimgui/cimgui) integration and selectable native graphics backends through [ANGLE](https://chromium.googlesource.com/angle/angle). Application code continues to use raylib and rlgl normally, raylib targets OpenGL ES 3 while ANGLE translates it to the selected platform API.
 
 | Platform | Launch values | Default |
 | --- | --- | --- |
@@ -35,6 +35,8 @@ loop. Game initialization, per-frame work, and shutdown live in `src/game.c`
 and `src/game.h`. A minimal replacement for `src/game.c` looks like this:
 
 ```c
+#include <im_alias.h>
+
 #include "game.h"
 
 void GAME_Init(void) {
@@ -60,18 +62,41 @@ void GAME_ShutDown(void) {
 }
 ```
 
-The generated `<rl_alias.h>` header exposes cimgui through the `IMGUI_` prefix
+The generated `<im_alias.h>` header exposes cimgui through the `IMGUI_` prefix
 and the raylib backend through `RGUI_`. `RGUI_BeginFrame()` and
 `RGUI_EndFrame()` must remain inside raylib's
-`BeginDrawing()`/`EndDrawing()` pair. The pinned cimgui,
-Dear ImGui, and rlImGui sources are built statically into every desktop and web
-target; no runtime GUI library needs to be packaged. Game code remains C99,
-while the build also needs a C++11 compiler for Dear ImGui's implementation.
+`BeginDrawing()`/`EndDrawing()` pair. With the module enabled, the pinned
+cimgui, Dear ImGui, and rlImGui sources are built statically into desktop and
+web targets; no runtime GUI library needs to be packaged. Game code remains
+C99, while the build also needs a C++11 compiler for Dear ImGui's
+implementation.
 
 With the default alias configuration, raylib functions and public constants use
 the `RLIB_` prefix, rlgl uses `RLGL_`, rlImGui uses `RGUI_`, and cimgui uses
 `IMGUI_`. Public types such as `Vector2`, `Texture2D`, `ImVec2`, and `ImGuiIO`
 retain their original names.
+
+### Optional ImGui module
+
+ImGui integration is enabled by default. Disable it when replacing the example
+with a game that does not need ImGui:
+
+```sh
+cmake --preset desktop-no-imgui
+cmake --build --preset desktop-no-imgui --parallel
+```
+
+The generator-independent equivalent is:
+
+```sh
+cmake -S . -B build/no-imgui -DGAME_ENABLE_IMGUI=OFF
+cmake --build build/no-imgui --parallel
+```
+
+With `GAME_ENABLE_IMGUI=OFF`, CMake does not download or build cimgui and
+rlImGui, does not generate `im_alias.h`, and does not link the ImGui backend.
+The bundled example assumes ImGui is enabled, so replace its ImGui-dependent
+source before building with this option disabled.
 
 Assets placed under `assets/` are staged automatically for desktop bundles and
 preloaded for web builds. CMake also generates an autocomplete-friendly asset
@@ -149,7 +174,9 @@ already open.
 
 `desktop-release` builds an optimized desktop application,
 `desktop-sanitize` enables runtime memory and undefined-behavior checks, and
-`desktop-no-angle` is useful when you want raylib's native OpenGL path. 
+`desktop-no-angle` is useful when you want raylib's native OpenGL path.
+`desktop-no-imgui` disables the optional ImGui module for replacement game
+sources that do not use it; the bundled example itself requires ImGui.
 
 These presets use Ninja; the equivalent generator-independent commands remain available:
 
@@ -322,23 +349,24 @@ deployment is available at <https://wiredmatt.github.io/rayplate/>.
 
 ## API alias generation
 
-The generated `rl_alias.h` includes all four API layers:
+Aliases are split by module:
 
-- raylib functions and public value constants use `RAYLIB_ALIAS_PREFIX` (`RLIB_`
-  by default), for example `RLIB_LoadShader`, `RLIB_DARKGRAY`, and
-  `RLIB_KEY_SPACE`.
-- rlgl functions and constants use `RLGL_ALIAS_PREFIX` (`RLGL_` by default),
-  for example `RLGL_LoadShader` and `RLGL_TRIANGLES`.
-- rlImGui functions use `RLIMGUI_ALIAS_PREFIX` (`RGUI_` by default), for
-  example `RGUI_Setup`, `RGUI_BeginFrame`, and `RGUI_Image`.
-- cimgui functions and constants use `CIMGUI_ALIAS_PREFIX` (`IMGUI_` by
-  default), for example `IMGUI_BeginWindow`, `IMGUI_Text`, and
-  `IMGUI_WindowFlags_NoResize`.
+- `rl_alias.h` contains raylib functions and public constants under
+  `RAYLIB_ALIAS_PREFIX` (`RLIB_` by default), plus rlgl functions and constants
+  under `RLGL_ALIAS_PREFIX` (`RLGL_` by default).
+- `im_alias.h` is generated when `GAME_ENABLE_IMGUI=ON` and aliases are
+  enabled. It contains
+  rlImGui functions under `RLIMGUI_ALIAS_PREFIX` (`RGUI_` by default) and
+  cimgui functions and constants under `CIMGUI_ALIAS_PREFIX` (`IMGUI_` by
+  default).
+
+Examples include `RLIB_LoadShader`, `RLGL_TRIANGLES`, `RGUI_BeginFrame`,
+`IMGUI_BeginWindow`, and `IMGUI_WindowFlags_NoResize`.
 
 Public types remain unchanged, including `Texture2D`, `ImVec2`, and `ImGuiIO`.
-cimgui functions use macro aliases in both alias modes because its generated API
-contains overloaded suffixes and callback signatures that cannot be forwarded
-reliably by generic C99 inline wrappers.
+In `INLINE` mode, cimgui uses static inline wrappers like raylib and rlgl.
+Variadic cimgui functions remain macro aliases because C99 cannot forward an
+arbitrary variadic argument list without a matching `va_list` entry point.
 
 Select inline wrappers, macros, or disable aliases with `RL_ALIAS_MODE`:
 

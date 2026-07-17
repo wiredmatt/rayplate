@@ -34,6 +34,7 @@ jobs:
           emcmake cmake -S . -B build/web
           -DCMAKE_BUILD_TYPE=Release
           -DPLATFORM=Web
+          -DGAME_ENABLE_IMGUI=ON
           -DRL_ALIAS_MODE=INLINE
           -DRAYLIB_ALIAS_PREFIX=RLIB_
           -DRLGL_ALIAS_PREFIX=RLGL_
